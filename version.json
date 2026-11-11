@@ -1,0 +1,8 @@
+{
+  "code": 1,
+  "nom": "1.0",
+  "apk": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison.apk",
+  "changements": [
+    "Première version de Ma Maison : vidéos, photos et musiques du PC, et tous les modules de la maison prêts (lumières, volets, prises, caméras, capteurs, consommation, télé et enceintes, ambiances, plannings, voix)."
+  ]
+}
