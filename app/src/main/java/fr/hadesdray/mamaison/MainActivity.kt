@@ -60,6 +60,7 @@ class MainActivity : Activity() {
     private var ecranActuel = "Accueil"
     private lateinit var passerelle: Passerelle
     private lateinit var moteur: Moteur
+    private lateinit var smartLife: SmartLife
     private lateinit var miseAJour: MiseAJour
     private val prefs by lazy { getSharedPreferences("maison", Context.MODE_PRIVATE) }
     private var minuteur: Runnable? = null
@@ -77,6 +78,7 @@ class MainActivity : Activity() {
         window.navigationBarColor = cFond
         passerelle = Passerelle(this)
         moteur = Moteur(this)
+        smartLife = SmartLife(this)
         miseAJour = MiseAJour(this)
         demanderAccesUneFois()
         ouvrir("Accueil", ::accueil, racine = true)
@@ -336,7 +338,7 @@ class MainActivity : Activity() {
 
         val apps = appareilsCache
         fun compte(dom: Set<String>, allumes: Boolean = false): String {
-            val l = apps ?: return if (moteur.pret) "…" else "Moteur à installer"
+            val l = apps ?: return if (moteur.pret || smartLife.pret) "…" else "À relier"
             val n = l.filter { it.domaine in dom }
             if (n.isEmpty()) return "Aucun appareil branché"
             return if (allumes) "${n.count { it.allume }} allumé(s) sur ${n.size}" else "${n.size} appareil(s)"
@@ -354,7 +356,9 @@ class MainActivity : Activity() {
             tuile("Télé et enceintes", compte(setOf("media_player"))) { ouvrir("Télé", { appareilsDe("Télé et enceintes", setOf("media_player"), "télé ou enceinte") }) },
             tuile("Ambiances", compte(setOf("scene", "script"))) { ouvrir("Ambiances", { appareilsDe("Ambiances", setOf("scene", "script"), "ambiance") }) },
             tuile("Plannings", "Allumer, éteindre à heure fixe") { ouvrir("Plannings", { plannings() }) },
-            tuile("Ajouter un appareil", "Brancher un nouvel appareil") { ouvrir("Ajouter", { ajouter() }) },
+            tuile("Smart Life", if (smartLife.pret) "Relié — ouvrir l'appli Smart Life" else "Ouvrir l'appli Smart Life") { ouvrirAppli("com.tuya.smartlife", "Smart Life") },
+            tuile("Google Home", "Ouvrir l'appli Google Home") { ouvrirAppli("com.google.android.apps.chromecast.app", "Google Home") },
+            tuile("Ajouter un appareil", if (smartLife.pret) "Brancher un nouvel appareil" else "Relier Smart Life à Ma Maison") { ouvrir("Ajouter", { ajouter() }) },
             tuile("Réglages", "Mode tablette, PC, mises à jour") { ouvrir("Réglages", { reglages() }) }
         )
         grille(c, tuiles)
@@ -362,15 +366,15 @@ class MainActivity : Activity() {
         enFond({
             val p = passerelle.trouver()
             if (!moteur.pret) moteur.recupererDepuisPasserelle(p)
-            Pair(p, if (moteur.pret) moteur.appareils() else null)
+            Pair(p, appareilsMaison())
         }) { (p, l) ->
             val parties = ArrayList<String>()
             parties.add(if (p != null) "PC de la maison : connecté" else "PC de la maison : introuvable (allumé ? même Wi-Fi ?)")
             parties.add(
                 when {
-                    !moteur.pret -> "Commande des appareils : moteur pas encore installé"
-                    l == null -> "Commande des appareils : le moteur ne répond pas"
-                    else -> "Commande des appareils : prête"
+                    !moteur.pret && !smartLife.pret -> "Appareils de la maison : pas encore reliés (va dans « Ajouter un appareil »)"
+                    l == null -> "Appareils de la maison : pas de réponse" + (if (smartLife.erreur.isNotEmpty()) " — " + smartLife.erreur else "")
+                    else -> "Appareils de la maison : ${l.size} reliés"
                 }
             )
             val temp = l?.firstOrNull { it.genre == "temperature" && it.etat.toDoubleOrNull() != null }
@@ -560,25 +564,54 @@ class MainActivity : Activity() {
         texte(c, "Ce module est prêt : dès que le moteur sera installé et tes appareils branchés, ils apparaîtront ici tout seuls.")
     }
 
-    private fun chargerAppareils(c: LinearLayout, suite: (List<Appareil>) -> Unit) {
-        if (!moteur.pret) {
-            val att = attente(c, "Recherche du moteur…")
-            enFond({
-                moteur.recupererDepuisPasserelle(passerelle.trouver())
-                if (moteur.pret) moteur.appareils() else null
-            }) { l ->
-                c.removeView(att)
-                if (!moteur.pret) moteurAbsent(c)
-                else if (l == null) texte(c, "Le moteur ne répond pas. Le PC est-il allumé ?", 16f, cTexte)
-                else { appareilsCache = l; suite(l) }
-            }
-            return
+    /** Tous les appareils connus : moteur du PC (s'il existe) + Smart Life. Hors du fil de l'écran. */
+    private fun appareilsMaison(): List<Appareil>? {
+        if (!moteur.pret) moteur.recupererDepuisPasserelle(passerelle.trouver())
+        val l = ArrayList<Appareil>()
+        var unOk = false
+        if (moteur.pret) moteur.appareils()?.let { l.addAll(it); unOk = true }
+        if (smartLife.pret) smartLife.appareils()?.let { l.addAll(it); unOk = true }
+        return if (unOk) l.sortedBy { it.nom.lowercase() } else null
+    }
+
+    /** Allume / éteint / inverse, quel que soit le système de l'appareil. */
+    private fun agir(a: Appareil, allumer: Boolean?): Boolean {
+        if (smartLife.estSmartLife(a)) return smartLife.agir(a, allumer)
+        val d = JSONObject().put("entity_id", a.id)
+        return when (allumer) {
+            null -> moteur.basculer(a)
+            true -> if (a.domaine == "cover") moteur.service("cover", "open_cover", d) else moteur.service("homeassistant", "turn_on", d)
+            false -> if (a.domaine == "cover") moteur.service("cover", "close_cover", d) else moteur.service("homeassistant", "turn_off", d)
         }
-        val att = attente(c, "Chargement…")
-        enFond({ moteur.appareils() }) { l ->
+    }
+
+    private fun ouvrirAppli(paquet: String, nom: String) {
+        val i = packageManager.getLaunchIntentForPackage(paquet)
+        if (i != null) { startActivity(i); return }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$paquet")))
+        } catch (e: Exception) {
+            message("L'appli $nom n'est pas installée sur cet appareil.")
+        }
+    }
+
+    private fun chargerAppareils(c: LinearLayout, suite: (List<Appareil>) -> Unit) {
+        val att = attente(c, "Chargement des appareils…")
+        enFond({ appareilsMaison() }) { l ->
             c.removeView(att)
-            if (l == null) texte(c, "Le moteur ne répond pas. Le PC est-il allumé et sur le même réseau ?", 16f, cTexte)
-            else { appareilsCache = l; suite(l) }
+            when {
+                l != null -> { appareilsCache = l; suite(l) }
+                !moteur.pret && !smartLife.pret -> {
+                    texte(c, "Aucun système d'appareils n'est encore relié.", 17f, cTexte)
+                    texte(c, "Relie ton compte Smart Life : c'est à faire une seule fois.")
+                    bouton(c, "Relier Smart Life") { ouvrir("Relier Smart Life", { relierSmartLife() }) }
+                }
+                else -> {
+                    texte(c, "Les appareils ne répondent pas.", 17f, cTexte)
+                    if (smartLife.erreur.isNotEmpty()) texte(c, smartLife.erreur)
+                    bouton(c, "Réessayer") { rafraichir() }
+                }
+            }
         }
     }
 
@@ -612,15 +645,16 @@ class MainActivity : Activity() {
             }
             val tuiles = l.map { a ->
                 tuile(a.nom, libelleEtat(a), a.allume) {
-                    enFond({ moteur.basculer(a) }) { ok ->
-                        if (!ok) message("L'appareil n'a pas répondu.")
+                    if (a.etat == "unavailable") { message("${a.nom} est injoignable (éteint ou hors Wi-Fi)."); return@tuile }
+                    enFond({ agir(a, null) }) { ok ->
+                        if (!ok) message(if (smartLife.estSmartLife(a) && smartLife.erreur.isNotEmpty()) smartLife.erreur else "L'appareil n'a pas répondu.")
                         ui.postDelayed({ if (pile.isNotEmpty()) rafraichir() }, 700)
                     }
                 }
             }
             grille(c, tuiles)
             if (domaines.contains("light")) bouton(c, "Tout éteindre") {
-                enFond({ moteur.service("light", "turn_off", JSONObject().put("entity_id", "all")) }) { ui.postDelayed({ rafraichir() }, 700) }
+                enFond({ l.filter { it.allume }.forEach { agir(it, false) } }) { ui.postDelayed({ rafraichir() }, 900) }
             }
             if (domaines.contains("media_player")) {
                 texte(c, "Touche un appareil pour lecture ou pause. Pour le volume :")
@@ -655,7 +689,10 @@ class MainActivity : Activity() {
                 texte(c, "Va dans « Ajouter un appareil » depuis l'accueil.")
                 return@chargerAppareils
             }
-            grille(c, l.map { a -> tuile(a.nom, libelleEtat(a)) { ouvrir("Caméra", { camera(a) }) } })
+            grille(c, l.map { a ->
+                if (smartLife.estSmartLife(a)) tuile(a.nom, "S'ouvre dans Smart Life") { ouvrirAppli("com.tuya.smartlife", "Smart Life") }
+                else tuile(a.nom, libelleEtat(a)) { ouvrir("Caméra", { camera(a) }) }
+            })
         }
     }
 
@@ -733,7 +770,9 @@ class MainActivity : Activity() {
     private fun consommation() {
         val c = page("Consommation")
         chargerAppareils(c) { tous ->
-            val l = tous.filter { it.domaine == "sensor" && it.genre in setOf("energy", "power", "gas", "water", "current", "voltage") }
+            val prises = tous.filter { it.attributs.has("puissance") }
+                .map { Appareil(it.id, it.nom, "%.1f".format(Locale.FRANCE, it.attributs.optDouble("puissance")), "W", "power", it.attributs) }
+            val l = tous.filter { it.domaine == "sensor" && it.genre in setOf("energy", "power", "gas", "water", "current", "voltage") } + prises
             if (l.isEmpty()) {
                 texte(c, "Aucun compteur ni prise mesurante branché pour l'instant.", 16f, cTexte)
                 texte(c, "Dès qu'une prise qui mesure, un compteur ou un module de consommation sera branché, ses chiffres s'afficheront ici.")
@@ -741,7 +780,7 @@ class MainActivity : Activity() {
             }
             val maintenant = l.filter { it.genre == "power" }
             if (maintenant.isNotEmpty()) {
-                val total = maintenant.mapNotNull { it.etat.toDoubleOrNull() }.sum()
+                val total = maintenant.mapNotNull { it.etat.replace(',', '.').toDoubleOrNull() }.sum()
                 texte(c, "En ce moment : %.0f W".format(Locale.FRANCE, total), 26f, cTexte)
             }
             val noms = mapOf("energy" to "Électricité consommée", "power" to "Puissance en ce moment", "gas" to "Gaz", "water" to "Eau", "current" to "Courant", "voltage" to "Tension")
@@ -758,12 +797,17 @@ class MainActivity : Activity() {
     private fun plannings() {
         val c = page("Plannings", "Exemple : chaque jour à 17 h, allumer la lumière du salon.")
         chargerAppareils(c) { tous ->
-            val pilotables = tous.filter { it.domaine in setOf("light", "switch", "cover", "lock", "media_player", "scene", "script", "fan", "climate") }
-            bouton(c, "Nouveau planning") {
+            val pilotables = tous.filter { !smartLife.estSmartLife(it) && it.domaine in setOf("light", "switch", "cover", "lock", "media_player", "scene", "script", "fan", "climate") }
+            if (pilotables.isNotEmpty() || moteur.pret) bouton(c, "Nouveau planning") {
                 if (pilotables.isEmpty()) message("Aucun appareil à programmer pour l'instant.") else nouveauPlanning(pilotables)
             }
+            if (tous.any { smartLife.estSmartLife(it) }) {
+                texte(c, "Appareils Smart Life", 17f, cAccent)
+                texte(c, "Leurs plannings se règlent dans l'appli Smart Life : ils marchent même quand ton téléphone est éteint.")
+                bouton(c, "Créer un planning dans Smart Life") { ouvrirAppli("com.tuya.smartlife", "Smart Life") }
+            }
             val l = tous.filter { it.domaine == "automation" }
-            if (l.isEmpty()) texte(c, "Aucun planning pour l'instant.")
+            if (l.isEmpty() && moteur.pret) texte(c, "Aucun planning pour l'instant.")
             for (a in l) {
                 val actif = a.etat == "on"
                 ligne(c, a.nom, if (actif) "Actif — toucher pour mettre en pause" else "En pause — toucher pour activer") {
@@ -828,30 +872,81 @@ class MainActivity : Activity() {
 
     private fun ajouter() {
         val c = page("Ajouter un appareil")
-        texte(c, "Comment ça marche", 18f, cAccent)
-        texte(c, "1. Branche l'appareil et installe-le d'abord avec l'appli de sa marque, sur le même Wi-Fi que la maison.\n" +
-                "2. Le moteur de la maison, sur le PC, le découvre en général tout seul.\n" +
-                "3. Il apparaît alors dans la bonne rubrique : Lumières, Caméras, Capteurs…")
-        texte(c, "Appareils compatibles", 18f, cAccent)
-        texte(c, "Des milliers de marques : ampoules, prises, volets, serrures, caméras, capteurs de température, d'humidité et de qualité de l'air, compteurs, télés, enceintes Google et autres. " +
-                "Les appareils Bluetooth ou d'autres types de liaison peuvent demander un petit récepteur branché sur le PC.")
-        texte(c, "Certains appareils ne marchent qu'avec le compte de leur marque sur Internet : ils fonctionneront, mais pas sans connexion.")
-        val etat = texte(c, "", 15f, cTexte)
-        val att = attente(c, "Recherche des appareils découverts…")
-        enFond({
-            if (!moteur.pret) moteur.recupererDepuisPasserelle(passerelle.trouver())
-            if (moteur.pret) Reseau.lire("${moteur.adresse}/api/config/config_entries/flow", 6000, mapOf("Authorization" to "Bearer ${moteur.jeton}")) else null
-        }) { t ->
-            c.removeView(att)
-            if (!moteur.pret) { etat.text = "Le moteur de la maison n'est pas encore installé sur le PC : cette étape arrive bientôt."; return@enFond }
-            val tab = try { JSONArray(t ?: "[]") } catch (e: Exception) { JSONArray() }
-            if (tab.length() == 0) { etat.text = "Aucun nouvel appareil en attente pour l'instant."; return@enFond }
-            etat.text = "Nouveaux appareils découverts, en attente de validation sur le PC :"
-            for (i in 0 until tab.length()) {
-                val o = tab.getJSONObject(i)
-                val nom = o.optJSONObject("context")?.optString("title_placeholders")?.takeIf { it.isNotBlank() && it != "{}" } ?: o.optString("handler")
-                ligne(c, nom, "Découvert sur le réseau") { }
+        texte(c, "Appareils Smart Life", 18f, cAccent)
+        if (smartLife.pret) {
+            texte(c, "Ton compte Smart Life est relié. Pour un nouvel appareil : installe-le dans l'appli Smart Life, il apparaîtra tout seul ici dans la bonne rubrique.", 15f, cTexte)
+            bouton(c, "Ouvrir Smart Life pour ajouter un appareil") { ouvrirAppli("com.tuya.smartlife", "Smart Life") }
+            bouton(c, "Revoir la liaison Smart Life") { ouvrir("Relier Smart Life", { relierSmartLife() }) }
+        } else {
+            texte(c, "Relie une seule fois ton compte Smart Life : tous ses appareils arrivent dans Ma Maison.", 15f, cTexte)
+            bouton(c, "Relier Smart Life") { ouvrir("Relier Smart Life", { relierSmartLife() }) }
+        }
+        texte(c, "Appareils Google Home", 18f, cAccent)
+        texte(c, "Les appareils Smart Life que tu vois dans Google Home arrivent ici par la liaison Smart Life. Pour les autres appareils Google (enceintes, télé), utilise la tuile Google Home de l'accueil.")
+        bouton(c, "Ouvrir Google Home") { ouvrirAppli("com.google.android.apps.chromecast.app", "Google Home") }
+        texte(c, "Plus tard", 18f, cAccent)
+        texte(c, "Quand le boîtier de la maison sera installé, il ajoutera des milliers d'autres marques, sans Internet.")
+    }
+
+    /** Assistant pas à pas pour relier le compte Smart Life (une seule fois). */
+    private fun relierSmartLife() {
+        val c = page("Relier Smart Life", "À faire une seule fois, sur le site gratuit de Tuya (le fabricant derrière Smart Life).")
+        val etapes = listOf(
+            "1. Crée un compte gratuit sur le site de Tuya pour les particuliers (bouton ci-dessous). Ce n'est pas le même que ton compte Smart Life.",
+            "2. Va dans « Cloud », puis « Créer un projet de développement ». Choisis « Maison intelligente » et le centre de données « Europe centrale ».",
+            "3. Dans le projet, onglet « Appareils », puis « Lier le compte de l'appli » : un code apparaît. Scanne-le avec l'appli Smart Life (bouton de scan en haut à droite de l'accueil) et confirme.",
+            "4. Dans l'onglet « Aperçu » du projet, copie l'identifiant d'accès et le secret d'accès, puis colle-les ici."
+        )
+        for (e in etapes) texte(c, e, 15f, cTexte)
+        bouton(c, "Ouvrir le site de Tuya") {
+            try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://iot.tuya.com"))) } catch (e: Exception) { message("Aucun navigateur trouvé.") }
+        }
+        texte(c, "Identifiant d'accès", 15f, cAccent)
+        val champId = EditText(this)
+        champId.setText(smartLife.identifiant)
+        champId.setTextColor(cTexte)
+        champId.isSingleLine = true
+        c.addView(champId)
+        texte(c, "Secret d'accès", 15f, cAccent)
+        val champSecret = EditText(this)
+        champSecret.setText(smartLife.secret)
+        champSecret.setTextColor(cTexte)
+        champSecret.isSingleLine = true
+        champSecret.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        c.addView(champSecret)
+        texte(c, "Région du projet", 15f, cAccent)
+        val regions = SmartLife.REGIONS.keys.toList()
+        var choix = SmartLife.REGIONS.values.indexOf(smartLife.hote).coerceAtLeast(0)
+        val boutonRegion = bouton(c, "Région : " + regions[choix]) { }
+        boutonRegion.setOnClickListener {
+            AlertDialog.Builder(this).setTitle("Région du projet")
+                .setSingleChoiceItems(regions.toTypedArray(), choix) { d, w -> choix = w; boutonRegion.text = "Région : " + regions[w]; d.dismiss() }
+                .show()
+        }
+        val resultat = texte(c, "", 16f, cTexte)
+        bouton(c, "Relier et tester") {
+            smartLife.identifiant = champId.text.toString()
+            smartLife.secret = champSecret.text.toString()
+            smartLife.hote = SmartLife.REGIONS.getValue(regions[choix])
+            if (!smartLife.pret) { resultat.text = "Remplis l'identifiant et le secret."; return@bouton }
+            resultat.text = "Test en cours…"
+            enFond({ smartLife.appareils() }) { l ->
+                if (l == null) {
+                    resultat.text = "Ça ne marche pas encore : " + smartLife.erreur
+                    resultat.setTextColor(cAccent)
+                } else {
+                    appareilsCache = null
+                    resultat.text = "C'est relié : ${l.size} appareil(s) trouvé(s)." + (if (l.isEmpty()) " As-tu bien scanné le code avec Smart Life (étape 3) ?" else "")
+                    resultat.setTextColor(cVert)
+                }
             }
+        }
+        if (smartLife.pret) bouton(c, "Délier Smart Life de cet appareil") {
+            smartLife.identifiant = ""
+            smartLife.secret = ""
+            appareilsCache = null
+            message("Smart Life n'est plus relié sur cet appareil.")
+            rafraichir()
         }
     }
 
@@ -879,8 +974,11 @@ class MainActivity : Activity() {
                 reglages()
             }
         }
-        texte(c, "Moteur de la maison", 18f, cAccent)
-        texte(c, if (moteur.pret) "Réglé : " + moteur.adresse else "Pas encore installé (il sera réglé tout seul).", 15f, cTexte)
+        texte(c, "Smart Life", 18f, cAccent)
+        texte(c, if (smartLife.pret) "Relié." else "Pas encore relié.", 15f, cTexte)
+        bouton(c, if (smartLife.pret) "Revoir la liaison Smart Life" else "Relier Smart Life") { ouvrir("Relier Smart Life", { relierSmartLife() }) }
+        texte(c, "Moteur de la maison (plus tard)", 18f, cAccent)
+        texte(c, if (moteur.pret) "Réglé : " + moteur.adresse else "Pas encore installé.", 15f, cTexte)
         bouton(c, "Régler le moteur à la main") {
             saisir("Adresse du moteur (ex. http://192.168.1.41:8123)", moteur.adresse) { a ->
                 moteur.adresse = a
@@ -969,11 +1067,8 @@ class MainActivity : Activity() {
             p.contains("musique") -> { ouvrir("Musique", { medias("musique", "Musique") }); return }
             p.contains("planning") -> { ouvrir("Plannings", { plannings() }); return }
         }
-        enFond({
-            if (!moteur.pret) moteur.recupererDepuisPasserelle(passerelle.trouver())
-            if (moteur.pret) moteur.appareils() else null
-        }) { l ->
-            if (l == null) { message("« $phrase » : le moteur de la maison n'est pas encore là."); return@enFond }
+        enFond({ appareilsMaison() }) { l ->
+            if (l == null) { message("« $phrase » : aucun appareil de la maison n'est relié ou ils ne répondent pas."); return@enFond }
             appareilsCache = l
             val domaines = when {
                 p.contains("camera") -> setOf("camera")
@@ -989,7 +1084,18 @@ class MainActivity : Activity() {
             val cible = candidats.maxByOrNull { a -> val n = sansAccents(a.nom); mots.count { n.contains(it) } }
             if (cible == null) { message("Je n'ai trouvé aucun appareil pour « $phrase »."); return@enFond }
             when {
+                cible.domaine == "camera" && smartLife.estSmartLife(cible) -> ouvrirAppli("com.tuya.smartlife", "Smart Life")
                 cible.domaine == "camera" -> ouvrir("Caméra", { camera(cible) })
+                smartLife.estSmartLife(cible) -> {
+                    val allumer: Boolean? = when {
+                        p.contains("eteins") || p.contains("eteint") || p.contains("coupe") || p.contains("arrete") || p.contains("ferm") -> false
+                        p.contains("allume") || p.contains("lance") || p.contains("active") || p.contains("ouvr") -> true
+                        else -> null
+                    }
+                    enFond({ smartLife.agir(cible, allumer) }) { ok ->
+                        message(if (ok) "C'est fait : ${cible.nom}" else "${cible.nom} n'a pas répondu. " + smartLife.erreur)
+                    }
+                }
                 else -> {
                     val d = JSONObject().put("entity_id", cible.id)
                     val srv: Pair<String, String> = when {

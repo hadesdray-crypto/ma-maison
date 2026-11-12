@@ -1,8 +1,11 @@
 {
-  "code": 1,
-  "nom": "1.0",
+  "code": 2,
+  "nom": "1.1",
   "apk": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison.apk",
   "changements": [
-    "Première version de Ma Maison : vidéos, photos et musiques du PC, et tous les modules de la maison prêts (lumières, volets, prises, caméras, capteurs, consommation, télé et enceintes, ambiances, plannings, voix)."
+    "Smart Life arrive dans Ma Maison : relie ton compte une seule fois (Ajouter un appareil > Relier Smart Life), tes lumières, prises et volets Smart Life se commandent ensuite depuis Ma Maison, aussi à la voix.",
+    "Nouvelles tuiles Smart Life et Google Home pour ouvrir ces applis d'une touche.",
+    "Les prises Smart Life qui mesurent s'affichent dans Consommation.",
+    "Les caméras Smart Life s'ouvrent dans l'appli Smart Life."
   ]
 }
