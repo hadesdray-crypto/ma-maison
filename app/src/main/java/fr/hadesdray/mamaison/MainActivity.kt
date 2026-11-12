@@ -61,6 +61,7 @@ class MainActivity : Activity() {
     private lateinit var passerelle: Passerelle
     private lateinit var moteur: Moteur
     private lateinit var smartLife: SmartLife
+    private lateinit var diffusion: Diffusion
     private lateinit var miseAJour: MiseAJour
     private val prefs by lazy { getSharedPreferences("maison", Context.MODE_PRIVATE) }
     private var minuteur: Runnable? = null
@@ -79,6 +80,7 @@ class MainActivity : Activity() {
         passerelle = Passerelle(this)
         moteur = Moteur(this)
         smartLife = SmartLife(this)
+        diffusion = Diffusion(this)
         miseAJour = MiseAJour(this)
         demanderAccesUneFois()
         ouvrir("Accueil", ::accueil, racine = true)
@@ -353,7 +355,7 @@ class MainActivity : Activity() {
             tuile("Caméras", compte(setOf("camera"))) { ouvrir("Caméras", { cameras() }) },
             tuile("Capteurs", compte(setOf("sensor", "binary_sensor", "weather", "climate"))) { ouvrir("Capteurs", { capteurs() }) },
             tuile("Consommation", "Électricité, eau, gaz") { ouvrir("Consommation", { consommation() }) },
-            tuile("Télé et enceintes", compte(setOf("media_player"))) { ouvrir("Télé", { appareilsDe("Télé et enceintes", setOf("media_player"), "télé ou enceinte") }) },
+            tuile("Télé et enceintes", if (diffusion.enCours()) "Envoi en cours — télécommande" else "Nest Mini, Freebox, télé") { ouvrir("Télé", { teleEnceintes() }) },
             tuile("Ambiances", compte(setOf("scene", "script"))) { ouvrir("Ambiances", { appareilsDe("Ambiances", setOf("scene", "script"), "ambiance") }) },
             tuile("Plannings", "Allumer, éteindre à heure fixe") { ouvrir("Plannings", { plannings() }) },
             tuile("Smart Life", if (smartLife.pret) "Relié — ouvrir l'appli Smart Life" else "Ouvrir l'appli Smart Life") { ouvrirAppli("com.tuya.smartlife", "Smart Life") },
@@ -440,7 +442,10 @@ class MainActivity : Activity() {
             val noms = Array(fichiers.length()) { fichiers.getJSONObject(it).optString("nom") }
             val liens = Array(fichiers.length()) { passerelle.lienFichier(p, fichiers.getJSONObject(it).optString("chemin")) }
             if (fichiers.length() > 0 && type != "photos") {
-                bouton(c, if (type == "musique") "Tout écouter" else "Tout lire à la suite") { lire(liens, noms, 0, type == "musique") }
+                bouton(c, if (type == "musique") "Tout écouter ici" else "Tout lire ici à la suite") { lire(liens, noms, 0, type == "musique") }
+            }
+            if (fichiers.length() > 0) {
+                bouton(c, if (type == "musique") "Envoyer sur une enceinte ou la télé" else "Envoyer sur la télé") { diffusion.envoyer(liens, noms, 0, type) }
             }
             for (i in 0 until dossiers.length()) {
                 val d = dossiers.getJSONObject(i)
@@ -514,7 +519,12 @@ class MainActivity : Activity() {
         val suiv = Button(this)
         suiv.text = "Suivante ›"
         suiv.isAllCaps = false
+        val tele = Button(this)
+        tele.text = "Sur la télé"
+        tele.isAllCaps = false
+        tele.setOnClickListener { diffusion.envoyer(liens, noms, index, "photos") }
         bas.addView(prec, LinearLayout.LayoutParams(0, -2, 1f))
+        bas.addView(tele, LinearLayout.LayoutParams(0, -2, 1f))
         bas.addView(suiv, LinearLayout.LayoutParams(0, -2, 1f))
         val lpb = FrameLayout.LayoutParams(-1, -2)
         lpb.gravity = Gravity.BOTTOM
@@ -677,6 +687,20 @@ class MainActivity : Activity() {
                 }
             }
             minuteur = Runnable { rafraichir() }.also { ui.postDelayed(it, 15000) }
+        }
+    }
+
+    private fun teleEnceintes() {
+        val c = page("Télé et enceintes")
+        texte(c, "Envoyer tes vidéos, musiques et photos du PC", 18f, cAccent)
+        texte(c, "Ouvre Vidéos, Musique ou Photos, choisis un dossier, puis touche « Envoyer sur la télé » ou « Envoyer sur une enceinte ou la télé ». Ça marche avec l'enceinte Google, la Freebox Player et les télés qui acceptent la diffusion Google.", 15f, cTexte)
+        bouton(c, "Télécommande de l'envoi en cours") { diffusion.telecommande() }
+        bouton(c, "Vidéos") { ouvrir("Vidéos", { medias("videos", "Vidéos") }) }
+        bouton(c, "Musique") { ouvrir("Musique", { medias("musique", "Musique") }) }
+        texte(c, "Autres réglages des enceintes et télés", 18f, cAccent)
+        bouton(c, "Ouvrir Google Home") { ouvrirAppli("com.google.android.apps.chromecast.app", "Google Home") }
+        if (moteur.pret) {
+            bouton(c, "Appareils du moteur de la maison") { ouvrir("Télé moteur", { appareilsDe("Télé et enceintes", setOf("media_player"), "télé ou enceinte") }) }
         }
     }
 

@@ -11,8 +11,8 @@ android {
         applicationId = "fr.hadesdray.mamaison"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
     }
 
     // Clé de signature fixe : indispensable pour que les mises à jour s'installent par-dessus
@@ -42,6 +42,8 @@ android {
 
 dependencies {
     implementation("androidx.core:core:1.13.1")
+    implementation("com.google.android.gms:play-services-cast-framework:21.4.0")
+    implementation("androidx.mediarouter:mediarouter:1.7.0")
     implementation("com.google.android.exoplayer:exoplayer-core:2.19.1")
     implementation("com.google.android.exoplayer:exoplayer-ui:2.19.1")
     implementation("com.google.android.exoplayer:exoplayer-hls:2.19.1")
