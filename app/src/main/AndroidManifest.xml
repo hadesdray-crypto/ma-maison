@@ -12,6 +12,14 @@
 
     <queries>
         <package android:name="com.tuya.smartlife" />
+        <package android:name="com.nvidia.geforcenow" />
+        <package android:name="com.gamepass" />
+        <package android:name="com.amazon.luna" />
+        <package android:name="com.boosteroid.streaming" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
         <package android:name="com.google.android.apps.chromecast.app" />
         <intent>
             <action android:name="android.speech.RecognitionService" />

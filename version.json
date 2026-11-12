@@ -1,10 +1,10 @@
 {
-  "code": 3,
-  "nom": "1.2",
+  "code": 4,
+  "nom": "1.3",
   "apk": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison.apk",
   "changements": [
-    "Envoie tes vidéos, musiques et photos du PC sur l'enceinte Google, la Freebox Player ou une télé compatible : bouton « Envoyer sur la télé » dans chaque dossier, et « Sur la télé » en regardant une photo.",
-    "Nouvelle page Télé et enceintes, avec une télécommande de l'envoi en cours (pause, suivant, volume, arrêt).",
-    "Toujours là : la liaison Smart Life et les tuiles Smart Life et Google Home."
+    "Nouvelle tuile Jeux : GeForce Now, Xbox (jeux dans le nuage), Amazon Luna et Boosteroid en un seul endroit. Si l'appli du service est installée elle s'ouvre, sinon la version navigateur.",
+    "Tu peux ajouter n'importe quelle autre appli de jeu de la tablette sur la page Jeux (appui long pour la retirer).",
+    "Toujours là : envoi vers enceintes et télé, Smart Life, vidéos et photos du PC."
   ]
 }

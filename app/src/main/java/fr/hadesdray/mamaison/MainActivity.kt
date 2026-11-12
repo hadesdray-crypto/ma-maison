@@ -358,6 +358,7 @@ class MainActivity : Activity() {
             tuile("Télé et enceintes", if (diffusion.enCours()) "Envoi en cours — télécommande" else "Nest Mini, Freebox, télé") { ouvrir("Télé", { teleEnceintes() }) },
             tuile("Ambiances", compte(setOf("scene", "script"))) { ouvrir("Ambiances", { appareilsDe("Ambiances", setOf("scene", "script"), "ambiance") }) },
             tuile("Plannings", "Allumer, éteindre à heure fixe") { ouvrir("Plannings", { plannings() }) },
+            tuile("Jeux", "GeForce Now, Amazon, Xbox…") { ouvrir("Jeux", { jeux() }) },
             tuile("Smart Life", if (smartLife.pret) "Relié — ouvrir l'appli Smart Life" else "Ouvrir l'appli Smart Life") { ouvrirAppli("com.tuya.smartlife", "Smart Life") },
             tuile("Google Home", "Ouvrir l'appli Google Home") { ouvrirAppli("com.google.android.apps.chromecast.app", "Google Home") },
             tuile("Ajouter un appareil", if (smartLife.pret) "Brancher un nouvel appareil" else "Relier Smart Life à Ma Maison") { ouvrir("Ajouter", { ajouter() }) },
@@ -688,6 +689,73 @@ class MainActivity : Activity() {
             }
             minuteur = Runnable { rafraichir() }.also { ui.postDelayed(it, 15000) }
         }
+    }
+
+    // ---------- jeux en streaming ----------
+
+    /** Services connus : nom, appli Android, adresse de la version navigateur. */
+    private val servicesJeux = listOf(
+        Triple("GeForce Now", "com.nvidia.geforcenow", "https://play.geforcenow.com"),
+        Triple("Xbox (jeux dans le nuage)", "com.gamepass", "https://www.xbox.com/fr-FR/play"),
+        Triple("Amazon Luna", "com.amazon.luna", "https://luna.amazon.fr"),
+        Triple("Boosteroid", "com.boosteroid.streaming", "https://cloud.boosteroid.com")
+    )
+
+    private fun ouvrirJeu(nom: String, paquet: String, web: String) {
+        // 1) l'appli si elle est installée, 2) la version navigateur, 3) le magasin
+        val i = if (paquet.isNotEmpty()) packageManager.getLaunchIntentForPackage(paquet) else null
+        if (i != null) { startActivity(i); return }
+        if (web.isNotEmpty()) {
+            try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(web))); return } catch (e: Exception) { }
+        }
+        if (paquet.isNotEmpty()) ouvrirAppli(paquet, nom) else message("Impossible d'ouvrir $nom.")
+    }
+
+    private fun jeux() {
+        val c = page("Jeux", "Tes jeux en streaming : tes comptes et tes parties restent chez chaque service, sur toutes les tablettes.")
+        val tuiles = ArrayList<View>()
+        for ((nom, paquet, web) in servicesJeux) {
+            val installee = packageManager.getLaunchIntentForPackage(paquet) != null
+            tuiles.add(tuile(nom, if (installee) "Appli installée" else "S'ouvre dans le navigateur") { ouvrirJeu(nom, paquet, web) })
+        }
+        val ajoutes = (prefs.getString("jeux_ajoutes", "") ?: "").split("\n").filter { it.contains("|") }
+        for (ligneJeu in ajoutes) {
+            val (nom, paquet) = ligneJeu.split("|", limit = 2)
+            tuiles.add(tuile(nom, "Ajouté par toi — appui long pour retirer") { ouvrirJeu(nom, paquet, "") }.also { v ->
+                v.setOnLongClickListener {
+                    val reste = ajoutes.filter { it != ligneJeu }.joinToString("\n")
+                    prefs.edit().putString("jeux_ajoutes", reste).apply()
+                    message("$nom retiré de la page Jeux.")
+                    rafraichir()
+                    true
+                }
+            })
+        }
+        grille(c, tuiles)
+        bouton(c, "Ajouter une autre appli de jeu de cette tablette") { choisirAppliJeu() }
+        texte(c, "La première fois sur chaque tablette, connecte-toi à ton compte dans le service. Ensuite c'est retenu.")
+        texte(c, "Amazon Luna a fortement réduit son service en 2026 : certains jeux n'y sont plus.")
+    }
+
+    private fun choisirAppliJeu() {
+        val principal = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val applis = packageManager.queryIntentActivities(principal, 0)
+            .map { it.loadLabel(packageManager).toString() to it.activityInfo.packageName }
+            .filter { it.second != packageName }
+            .distinctBy { it.second }
+            .sortedBy { it.first.lowercase() }
+        if (applis.isEmpty()) { message("Aucune appli trouvée."); return }
+        AlertDialog.Builder(this)
+            .setTitle("Quelle appli de jeu ajouter ?")
+            .setItems(applis.map { it.first }.toTypedArray()) { _, w ->
+                val (nom, paquet) = applis[w]
+                val actuel = prefs.getString("jeux_ajoutes", "") ?: ""
+                prefs.edit().putString("jeux_ajoutes", (if (actuel.isEmpty()) "" else actuel + "\n") + "$nom|$paquet").apply()
+                message("$nom ajouté à la page Jeux.")
+                rafraichir()
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
     }
 
     private fun teleEnceintes() {
