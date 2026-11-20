@@ -3,50 +3,81 @@ package fr.hadesdray.mamaison
 import android.app.Activity
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
-import android.widget.Toast
+import com.google.android.exoplayer2.C
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.MediaMetadata
 import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.Tracks
 import com.google.android.exoplayer2.ui.StyledPlayerView
 
-/** Lecteur des vidéos et musiques du PC (et des flux de caméras). Flèche retour = on revient. */
+/**
+ * Lecteur des vidéos et musiques du PC (et des flux de caméras). Flèche retour = on revient.
+ * Lecture en cascade : d'abord ExoPlayer ; s'il échoue (erreur, ou son sans image au bout de 6 s),
+ * ou si le format est un vieux format (.avi, .wmv...), on passe au lecteur VLC (LecteurVlc) au même endroit.
+ */
 class LecteurActivity : Activity() {
 
     private var lecteur: ExoPlayer? = null
+    private var vlc: LecteurVlc? = null
+    private var vue: StyledPlayerView? = null
+    private lateinit var cadre: FrameLayout
+    private lateinit var titre: TextView
+    private var liens: Array<String> = arrayOf()
+    private var noms: Array<String> = arrayOf()
+    private var musique = false
+
+    // Surveillance « son sans image » : vrai dès qu'ExoPlayer a affiché une première image
+    private val minuteur = Handler(Looper.getMainLooper())
+    private var imageVue = false
+    private val verifierImage = Runnable { verifierImageExo() }
 
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
         Tv.attach(this)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        val liens = intent.getStringArrayExtra("liens") ?: arrayOf()
-        val noms = intent.getStringArrayExtra("noms") ?: arrayOf()
-        val depart = intent.getIntExtra("index", 0)
-        val musique = intent.getBooleanExtra("musique", false)
+        liens = intent.getStringArrayExtra("liens") ?: arrayOf()
+        noms = intent.getStringArrayExtra("noms") ?: arrayOf()
+        val depart = if (liens.isEmpty()) 0 else intent.getIntExtra("index", 0).coerceIn(0, liens.size - 1)
+        musique = intent.getBooleanExtra("musique", false)
 
-        val cadre = FrameLayout(this)
+        cadre = FrameLayout(this)
         cadre.setBackgroundColor(Color.BLACK)
-        val vue = StyledPlayerView(this)
-        vue.setShowNextButton(true)
-        vue.setShowPreviousButton(true)
-        cadre.addView(vue, FrameLayout.LayoutParams(-1, -1))
-        val titre = TextView(this)
+        val v = StyledPlayerView(this)
+        vue = v
+        v.setShowNextButton(true)
+        v.setShowPreviousButton(true)
+        cadre.addView(v, FrameLayout.LayoutParams(-1, -1))
+        titre = TextView(this)
         titre.setTextColor(Color.WHITE)
         titre.textSize = if (musique) 24f else 16f
         titre.setPadding(40, 40, 40, 40)
         titre.setShadowLayer(6f, 0f, 0f, Color.BLACK)
         cadre.addView(titre, FrameLayout.LayoutParams(-1, -2))
         setContentView(cadre)
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+
+        if (liens.isEmpty()) return
+        titre.text = noms.getOrElse(depart) { "" }
+
+        // Vieux format connu : directement VLC (plus rapide que d'attendre l'échec d'ExoPlayer)
+        if (LecteurVlc.pourVlc(liens[depart], noms.getOrElse(depart) { "" })) {
+            basculerVlc(depart, 0)
+            return
+        }
 
         val p = ExoPlayer.Builder(this).build()
         lecteur = p
-        vue.player = p
-        if (musique) vue.controllerShowTimeoutMs = 0
+        v.player = p
+        if (musique) v.controllerShowTimeoutMs = 0
         for (i in liens.indices) {
             val nom = noms.getOrElse(i) { "" }
             p.addMediaItem(
@@ -57,38 +88,101 @@ class LecteurActivity : Activity() {
         p.addListener(object : Player.Listener {
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 titre.text = item?.mediaMetadata?.title ?: ""
+                val i = p.currentMediaItemIndex
+                // La vidéo suivante est un vieux format : on passe à VLC pour elle
+                if (i in liens.indices && LecteurVlc.pourVlc(liens[i], noms.getOrElse(i) { "" })) {
+                    basculerVlc(i, 0)
+                } else {
+                    surveillerImage()
+                }
+            }
+
+            override fun onTracksChanged(tracks: Tracks) {
+                // Son (AC3/DTS...) ou image présents mais illisibles ici : film muet ou noir -> VLC
+                if (tracks.isEmpty) return
+                val sonKo = tracks.containsType(C.TRACK_TYPE_AUDIO) && !tracks.isTypeSupported(C.TRACK_TYPE_AUDIO)
+                val imageKo = tracks.containsType(C.TRACK_TYPE_VIDEO) && !tracks.isTypeSupported(C.TRACK_TYPE_VIDEO)
+                if (sonKo || imageKo) basculerVlc(p.currentMediaItemIndex, p.currentPosition)
+            }
+
+            override fun onRenderedFirstFrame() {
+                imageVue = true
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                Toast.makeText(
-                    this@LecteurActivity,
-                    "Ce fichier ne peut pas être lu ici (format non pris en charge ou PC éteint). On passe au suivant.",
-                    Toast.LENGTH_LONG
-                ).show()
-                if (p.hasNextMediaItem()) {
-                    p.seekToNextMediaItem()
-                    p.prepare()
-                    p.play()
-                }
+                // ExoPlayer ne sait pas lire ce fichier : VLC essaie le même, au même endroit
+                basculerVlc(p.currentMediaItemIndex, p.currentPosition)
             }
         })
-        if (liens.isNotEmpty()) {
-            p.seekTo(depart.coerceIn(0, liens.size - 1), 0)
-            titre.text = noms.getOrElse(depart) { "" }
-            p.prepare()
-            p.play()
+        p.seekTo(depart, 0)
+        p.prepare()
+        p.play()
+        surveillerImage()
+    }
+
+    /** Relance l'attente de 6 s pour vérifier qu'ExoPlayer affiche bien une image. */
+    private fun surveillerImage() {
+        imageVue = false
+        minuteur.removeCallbacks(verifierImage)
+        if (!musique) minuteur.postDelayed(verifierImage, 6000)
+    }
+
+    /** Au bout de 6 s : le son ou la durée sont là mais aucune image -> VLC. */
+    private fun verifierImageExo() {
+        val p = lecteur ?: return
+        if (imageVue || vlc != null) return
+        if (p.playbackState != Player.STATE_READY) {
+            // Encore en chargement (PC lent) : on regarde de nouveau un peu plus tard
+            if (p.playbackState == Player.STATE_BUFFERING) minuteur.postDelayed(verifierImage, 3000)
+            return
         }
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        val dureeLa = p.duration != C.TIME_UNSET && p.duration > 0
+        val sonLa = p.currentTracks.containsType(C.TRACK_TYPE_AUDIO)
+        if (dureeLa || sonLa) basculerVlc(p.currentMediaItemIndex, p.currentPosition)
+    }
+
+    /** Remplace ExoPlayer par VLC pour la vidéo n° index, à la position donnée. */
+    private fun basculerVlc(index: Int, positionMs: Long) {
+        if (vlc != null || isFinishing) return
+        minuteur.removeCallbacks(verifierImage)
+        val i = index.coerceIn(0, liens.size - 1)
+        val pos = if (positionMs > 0) positionMs else 0L
+        // On sort d'abord du rappel d'ExoPlayer avant de le libérer
+        minuteur.post {
+            if (vlc != null || isFinishing || isDestroyed) return@post
+            lecteur?.release()
+            lecteur = null
+            vue?.player = null
+            vue?.let { cadre.removeView(it) }
+            vue = null
+            vlc = LecteurVlc(this, cadre, liens, noms, i, pos, titre)
+        }
+    }
+
+    // Télécommande : quand VLC lit, c'est lui qui reçoit OK et les flèches (la flèche retour reste normale)
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val v = vlc
+        if (v != null && v.touche(event)) return true
+        return super.dispatchKeyEvent(event)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        vlc?.attacher()
     }
 
     override fun onStop() {
         super.onStop()
         lecteur?.pause()
+        vlc?.arreter()
     }
 
     override fun onDestroy() {
+        minuteur.removeCallbacksAndMessages(null)
         lecteur?.release()
         lecteur = null
+        vlc?.liberer()
+        vlc = null
         super.onDestroy()
     }
 }

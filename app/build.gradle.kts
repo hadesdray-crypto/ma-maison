@@ -11,8 +11,10 @@ android {
         applicationId = "fr.hadesdray.mamaison"
         minSdk = 24
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.5"
+        versionCode = 7
+        versionName = "1.6"
+        // Bibliothèque VLC : seulement ces processeurs (téléphones/box ARM + télés virtuelles x86) pour limiter le poids
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64") }
     }
 
     // Clé de signature fixe : indispensable pour que les mises à jour s'installent par-dessus
@@ -48,4 +50,6 @@ dependencies {
     implementation("com.google.android.exoplayer:exoplayer-ui:2.19.1")
     implementation("com.google.android.exoplayer:exoplayer-hls:2.19.1")
     implementation("com.google.android.exoplayer:exoplayer-rtsp:2.19.1")
+    // Lecteur de secours tous formats (gratuit) pour les vidéos qu'ExoPlayer ne lit pas
+    implementation("org.videolan.android:libvlc-all:3.6.0")
 }
