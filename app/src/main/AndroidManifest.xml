@@ -9,9 +9,13 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <!-- Télé (Freebox Player) : l'appli s'affiche sur l'écran d'accueil et se pilote à la télécommande -->
+    <uses-feature android:name="android.software.leanback" android:required="false" />
 
     <queries>
         <package android:name="com.tuya.smartlife" />
+        <package android:name="fr.hadesdray.youpub.tv" />
+        <package android:name="fr.hadesdray.youpub" />
         <package android:name="com.nvidia.geforcenow" />
         <package android:name="com.gamepass" />
         <package android:name="com.amazon.luna" />
@@ -32,6 +36,7 @@
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:label="Ma Maison"
+        android:banner="@drawable/banniere"
         android:supportsRtl="false"
         android:theme="@android:style/Theme.Material.NoActionBar">
 
@@ -43,6 +48,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
 

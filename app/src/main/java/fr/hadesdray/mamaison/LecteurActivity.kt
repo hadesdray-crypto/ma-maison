@@ -22,6 +22,7 @@ class LecteurActivity : Activity() {
 
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
+        Tv.attach(this)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val liens = intent.getStringArrayExtra("liens") ?: arrayOf()
         val noms = intent.getStringArrayExtra("noms") ?: arrayOf()

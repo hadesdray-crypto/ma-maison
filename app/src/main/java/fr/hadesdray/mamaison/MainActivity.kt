@@ -84,6 +84,7 @@ class MainActivity : Activity() {
         miseAJour = MiseAJour(this)
         demanderAccesUneFois()
         ouvrir("Accueil", ::accueil, racine = true)
+        Tv.attach(this)   // télé : flèches de la télécommande, cadre blanc sur la tuile choisie
         miseAJour.verifier(false)
     }
 
@@ -359,6 +360,7 @@ class MainActivity : Activity() {
             tuile("Ambiances", compte(setOf("scene", "script"))) { ouvrir("Ambiances", { appareilsDe("Ambiances", setOf("scene", "script"), "ambiance") }) },
             tuile("Plannings", "Allumer, éteindre à heure fixe") { ouvrir("Plannings", { plannings() }) },
             tuile("Jeux", "GeForce Now, Amazon, Xbox…") { ouvrir("Jeux", { jeux() }) },
+            tuile("YouPub", "Vidéos, musique et télé sans pub") { ouvrirYouPub() },
             tuile("Smart Life", if (smartLife.pret) "Relié — ouvrir l'appli Smart Life" else "Ouvrir l'appli Smart Life") { ouvrirAppli("com.tuya.smartlife", "Smart Life") },
             tuile("Google Home", "Ouvrir l'appli Google Home") { ouvrirAppli("com.google.android.apps.chromecast.app", "Google Home") },
             tuile("Ajouter un appareil", if (smartLife.pret) "Brancher un nouvel appareil" else "Relier Smart Life à Ma Maison") { ouvrir("Ajouter", { ajouter() }) },
@@ -594,6 +596,14 @@ class MainActivity : Activity() {
             true -> if (a.domaine == "cover") moteur.service("cover", "open_cover", d) else moteur.service("homeassistant", "turn_on", d)
             false -> if (a.domaine == "cover") moteur.service("cover", "close_cover", d) else moteur.service("homeassistant", "turn_off", d)
         }
+    }
+
+    /** YouPub : la version télé si elle est installée (Freebox), sinon YouPub normale. */
+    private fun ouvrirYouPub() {
+        for (p in listOf("fr.hadesdray.youpub.tv", "fr.hadesdray.youpub")) {
+            packageManager.getLaunchIntentForPackage(p)?.let { startActivity(it); return }
+        }
+        message("YouPub n'est pas encore installée sur cet appareil.")
     }
 
     private fun ouvrirAppli(paquet: String, nom: String) {
