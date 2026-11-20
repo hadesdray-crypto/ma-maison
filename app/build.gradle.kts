@@ -13,8 +13,16 @@ android {
         targetSdk = 35
         versionCode = 7
         versionName = "1.6"
-        // Bibliothèque VLC : seulement ces processeurs (téléphones/box ARM + télés virtuelles x86) pour limiter le poids
-        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64") }
+    }
+
+    // Lecteur VLC lourd : un fichier par type de processeur (chaque appareil ne télécharge que le sien)
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = false
+        }
     }
 
     // Clé de signature fixe : indispensable pour que les mises à jour s'installent par-dessus

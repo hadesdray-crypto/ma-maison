@@ -95,9 +95,15 @@ class MiseAJour(private val activite: Activity) {
         AlertDialog.Builder(activite)
             .setTitle("Mise à jour " + r.optString("nom", ""))
             .setView(defil)
-            .setPositiveButton("Mettre à jour") { _, _ -> telecharger(r.optString("apk")) }
+            .setPositiveButton("Mettre à jour") { _, _ -> telecharger(adresseApk(r)) }
             .setNegativeButton("Plus tard", null)
             .show()
+    }
+
+    /** Le fichier fait pour le processeur de cet appareil (64 ou 32 bits), sinon le fichier commun. */
+    private fun adresseApk(r: JSONObject): String {
+        for (abi in Build.SUPPORTED_ABIS) r.optString("apk_$abi").takeIf { it.isNotEmpty() }?.let { return it }
+        return r.optString("apk")
     }
 
     /** YouPub TV : Ma Maison la télécharge et l'installe elle-même (rien à faire à part valider l'installation). */
