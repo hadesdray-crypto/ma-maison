@@ -1,8 +1,10 @@
 {
-  "code": 4,
-  "nom": "1.3",
+  "code": 5,
+  "nom": "1.4",
   "apk": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison.apk",
   "changements": [
+    "Télé (Freebox et box Android TV) : Ma Maison apparaît sur l'accueil de la box et se pilote entièrement aux flèches de la télécommande, avec un cadre blanc sur la tuile choisie.",
+    "Nouvelle tuile YouPub (en descendant, après Jeux) : ouvre YouPub TV sur la télé, ou YouPub sur la tablette.",
     "Nouvelle tuile Jeux : GeForce Now, Xbox (jeux dans le nuage), Amazon Luna et Boosteroid en un seul endroit. Si l'appli du service est installée elle s'ouvre, sinon la version navigateur.",
     "Tu peux ajouter n'importe quelle autre appli de jeu de la tablette sur la page Jeux (appui long pour la retirer).",
     "Toujours là : envoi vers enceintes et télé, Smart Life, vidéos et photos du PC."
