@@ -86,6 +86,12 @@ class MainActivity : Activity() {
         ouvrir("Accueil", ::accueil, racine = true)
         Tv.attach(this)   // télé : flèches de la télécommande, cadre blanc sur la tuile choisie
         miseAJour.verifier(false)
+        // Sur la télé : YouPub TV arrive avec Ma Maison (proposée une seule fois, sinon par la tuile YouPub).
+        val pr = getSharedPreferences("maison", MODE_PRIVATE)
+        if (Tv.isTv(this) && packageManager.getLaunchIntentForPackage("fr.hadesdray.youpub.tv") == null && !pr.getBoolean("youpub_tv_propose", false)) {
+            pr.edit().putBoolean("youpub_tv_propose", true).apply()
+            ui.postDelayed({ if (!isFinishing) { message("Ma Maison installe YouPub TV : valide quand Android le demande."); miseAJour.installerYouPubTv() } }, 4000)
+        }
     }
 
     // ---------- navigation ----------
@@ -603,7 +609,9 @@ class MainActivity : Activity() {
         for (p in listOf("fr.hadesdray.youpub.tv", "fr.hadesdray.youpub")) {
             packageManager.getLaunchIntentForPackage(p)?.let { startActivity(it); return }
         }
-        message("YouPub n'est pas encore installée sur cet appareil.")
+        // Pas encore là : Ma Maison l'installe elle-même (la version télé sur une télé, sinon la version télé aussi, plus légère).
+        message("Installation de YouPub TV : valide quand Android le demande.")
+        miseAJour.installerYouPubTv()
     }
 
     private fun ouvrirAppli(paquet: String, nom: String) {

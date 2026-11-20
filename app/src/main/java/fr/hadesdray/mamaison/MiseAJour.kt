@@ -100,7 +100,11 @@ class MiseAJour(private val activite: Activity) {
             .show()
     }
 
-    private fun telecharger(adresse: String) {
+    /** YouPub TV : Ma Maison la télécharge et l'installe elle-même (rien à faire à part valider l'installation). */
+    fun installerYouPubTv() = telecharger(
+        "https://raw.githubusercontent.com/hadesdray-crypto/youpub-tv-maj/main/YouPub.apk", "youpub-tv.apk", "Installation de YouPub TV")
+
+    private fun telecharger(adresse: String, nom: String = "ma-maison.apk", titre: String = "Mise à jour en cours") {
         if (adresse.isEmpty()) return
         val barre = ProgressBar(activite, null, android.R.attr.progressBarStyleHorizontal)
         barre.max = 100
@@ -114,7 +118,7 @@ class MiseAJour(private val activite: Activity) {
         boite.addView(texte)
         boite.addView(barre, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         val fenetre = AlertDialog.Builder(activite)
-            .setTitle("Mise à jour en cours")
+            .setTitle(titre)
             .setView(boite)
             .setCancelable(false)
             .show()
@@ -124,10 +128,11 @@ class MiseAJour(private val activite: Activity) {
                 val dossier = File(activite.cacheDir, "maj")
                 dossier.mkdirs()
                 dossier.listFiles()?.forEach { it.delete() }
-                val f = File(dossier, "ma-maison.apk")
+                val f = File(dossier, nom)
                 val c = URL(adresse).openConnection() as HttpURLConnection
                 c.connectTimeout = 15000
-                c.readTimeout = 15000
+                c.readTimeout = 60000
+                c.instanceFollowRedirects = true
                 val total = c.contentLength
                 var lu = 0L
                 c.inputStream.use { entree ->

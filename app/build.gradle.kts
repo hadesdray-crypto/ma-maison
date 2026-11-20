@@ -11,8 +11,8 @@ android {
         applicationId = "fr.hadesdray.mamaison"
         minSdk = 24
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.4"
+        versionCode = 6
+        versionName = "1.5"
     }
 
     // Clé de signature fixe : indispensable pour que les mises à jour s'installent par-dessus
