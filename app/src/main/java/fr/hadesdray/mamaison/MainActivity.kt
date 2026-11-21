@@ -1151,6 +1151,7 @@ class MainActivity : Activity() {
 
     private fun relierDyson() {
         val c = page("Relier Dyson", "Une seule fois. Tes appareils restent appairés dans MyDyson.")
+        if (dyson.relie) texte(c, "Déjà relié : " + dyson.machines.joinToString(", ") { it.nom } + ". Pas besoin de recommencer, sauf pour ajouter un nouvel appareil Dyson.", 15f, cVert)
         texte(c, "1. Écris l'e-mail de ton compte MyDyson, puis touche « Recevoir le code ».", 15f, cTexte)
         val champMail = champ(c, "E-mail du compte MyDyson", dyson.email, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS)
         var demande: String? = null
@@ -1171,7 +1172,7 @@ class MainActivity : Activity() {
         val resultat = texte(c, "", 16f, cTexte)
         bouton(c, "Relier") {
             val d = demande
-            if (d == null) { resultat.text = "Demande d'abord le code (étape 1)."; resultat.setTextColor(cAccent); return@bouton }
+            if (d == null) { resultat.text = "Touche d'abord « Recevoir le code par e-mail » : chaque liaison demande un nouveau code."; resultat.setTextColor(cAccent); return@bouton }
             val code = champCode.text.toString()
             val mdp = champMdp.text.toString()
             if (code.isBlank() || mdp.isBlank()) { resultat.text = "Remplis le code et le mot de passe."; resultat.setTextColor(cAccent); return@bouton }
@@ -1179,7 +1180,13 @@ class MainActivity : Activity() {
             resultat.setTextColor(cGris)
             enFond({ dyson.valider(mdp, d, code) }) { ok ->
                 champMdp.setText("")
-                if (!ok) { resultat.text = dyson.erreur; resultat.setTextColor(cAccent); return@enFond }
+                if (!ok) {
+                    if (dyson.codeUse) { demande = null; champCode.setText(""); etape1.text = "" }
+                    resultat.text = dyson.erreur; resultat.setTextColor(cAccent); return@enFond
+                }
+                demande = null
+                champCode.setText("")
+                etape1.text = ""
                 val l = dyson.machines
                 resultat.text = if (l.isEmpty()) dyson.erreur else "C'est relié : " + l.joinToString(", ") { it.nom } + "."
                 resultat.setTextColor(if (l.isEmpty()) cAccent else cVert)

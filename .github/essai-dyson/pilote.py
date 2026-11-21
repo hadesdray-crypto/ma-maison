@@ -4,11 +4,11 @@ def adb(*a): return subprocess.run(["adb"] + list(a), capture_output=True, text=
 def ecran():
     adb("shell", "uiautomator", "dump", "/sdcard/ui.xml")
     return adb("shell", "cat", "/sdcard/ui.xml")
-def toucher(texte, defile=6):
+def toucher(texte, defile=6, exact=False):
     for _ in range(defile + 1):
         x = ecran()
         for m in re.finditer(r'text="([^"]*)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', x):
-            if m.group(1).startswith(texte):
+            if (m.group(1) == texte) if exact else m.group(1).startswith(texte):
                 x1, y1, x2, y2 = map(int, m.groups()[1:])
                 adb("shell", "input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2))
                 time.sleep(2); return True
@@ -20,7 +20,8 @@ def textes():
     return re.findall(r'text="([^"]+)"', ecran())
 etapes = sys.argv[1:]
 for e in etapes:
-    if e.startswith("tap:"): print("toucher", e[4:], toucher(e[4:]))
+    if e.startswith("tapx:"): print("toucher exact", e[5:], toucher(e[5:], exact=True))
+    elif e.startswith("tap:"): print("toucher", e[4:], toucher(e[4:]))
     elif e.startswith("cap:"): capture(e[4:]); print("capture", e[4:], textes())
     elif e.startswith("dormir:"): time.sleep(int(e[7:]))
     elif e == "retour": adb("shell", "input", "keyevent", "4"); time.sleep(2)

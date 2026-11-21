@@ -73,7 +73,7 @@ jobs:
             adb shell run-as fr.hadesdray.mamaison mkdir -p shared_prefs
             adb shell run-as fr.hadesdray.mamaison cp /data/local/tmp/maison.xml shared_prefs/maison.xml
             adb shell am start -n fr.hadesdray.mamaison/.MainActivity ; sleep 10
-            python3 ../.github/essai-dyson/pilote.py tap:Dyson dormir:2 cap:5-dyson-relie tap:Salon dormir:8 cap:6-ventilo tap:Allumer dormir:6 cap:7-ventilo-allume tap:Oscillation dormir:6 cap:8-oscillation retour tap:Robot dormir:8 cap:9-robot tap:Lancer dormir:6 cap:10-robot-menage > pilote2.txt 2>&1 || true
+            python3 ../.github/essai-dyson/pilote.py tap:Dyson dormir:2 cap:5-dyson-relie tap:Salon dormir:8 cap:6-ventilo tap:Allumer dormir:6 cap:7-ventilo-allume tap:Oscillation dormir:6 cap:8-oscillation retour tap:Robot dormir:8 cap:9-robot tap:Lancer dormir:6 cap:10-robot-menage retour tap:Relier dormir:2 cap:11-relier-deja tapx:Relier dormir:2 cap:12-relier-sans-code > pilote2.txt 2>&1 || true
             adb logcat -d -s AndroidRuntime:E > plantages.txt || true
       - name: Ranger les résultats
         if: always()
