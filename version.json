@@ -1,15 +1,13 @@
 {
-  "code": 8,
-  "nom": "1.7",
+  "code": 9,
+  "nom": "1.7.1",
   "apk": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison.apk",
   "changements": [
+    "Dyson : refaire la liaison marche (chaque liaison redemande un nouveau code ; si Dyson refuse, l'appli dit quoi faire). Tes appareils déjà reliés restent pilotables, inutile de recommencer.",
     "Nouvelle tuile Dyson : ton ventilateur et ton aspirateur robot se pilotent dans Ma Maison par le Wi-Fi de la maison (allumer, vitesse, automatique, oscillation, mode nuit, température, humidité, particules ; lancer le ménage, pause, retour à la base).",
     "Une seule liaison avec ton compte MyDyson (e-mail, code reçu par mail, mot de passe) : tes appareils arrivent tout seuls, sans nouvel appairage. Autre voie : l'étiquette Wi-Fi de l'appareil.",
     "Télé : « Recevoir du téléphone » sur la télé, puis « Envoyer à la télé » sur le téléphone, et la télé a tes Dyson sans rien taper.",
-    "Hors de la maison : la tuile Dyson ouvre l'appli MyDyson.",
-    "Lecteur tous formats : les vieux films (.avi, .wmv, .flv, .mpg) et les sons de cinéma (AC3, DTS) se lisent maintenant ; à la télécommande : OK = lecture/pause, gauche/droite = 10 secondes.",
-    "Sur la télé : Ma Maison installe YouPub TV toute seule (tu valides juste l'installation), et YouPub TV s'active sans code.",
-    "Télé : Ma Maison sur l'accueil de la box, tout à la télécommande, tuile YouPub après Jeux."
+    "Hors de la maison : la tuile Dyson ouvre l'appli MyDyson."
   ],
   "apk_arm64-v8a": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison-arm64.apk",
   "apk_armeabi-v7a": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison-arm32.apk"
