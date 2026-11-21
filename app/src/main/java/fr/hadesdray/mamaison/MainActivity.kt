@@ -1124,12 +1124,14 @@ class MainActivity : Activity() {
         if (!tele) {
             val etat = TextView(this)
             bouton(c, "Envoyer à la télé (ou à une tablette)") {
+                etat.visibility = View.VISIBLE
                 etat.text = "Recherche de la télé qui attend…"
                 enFond({ dyson.envoyerALaTele() }) { ok ->
                     etat.text = if (ok) "C'est envoyé : la télé a tes appareils Dyson." else dyson.erreur
                     etat.setTextColor(if (ok) cVert else cAccent)
                 }
             }
+            etat.visibility = View.GONE
             etat.setTextColor(cGris)
             etat.textSize = taille(15f)
             etat.setPadding(dp(6), dp(6), dp(6), dp(6))
