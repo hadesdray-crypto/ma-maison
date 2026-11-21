@@ -36,8 +36,9 @@ jobs:
           sudo mosquitto_passwd -b /etc/mosquitto/essai ROB-EU-TEST0002 clerobot
           sudo mosquitto_passwd -b /etc/mosquitto/essai faux faux
           sudo chmod 644 /etc/mosquitto/essai
-          printf "listener 1883 0.0.0.0\nallow_anonymous false\npassword_file /etc/mosquitto/essai\n" > mq.conf
-          mosquitto -c mq.conf -d
+          sudo systemctl stop mosquitto || true
+          printf "listener 1883 0.0.0.0\nallow_anonymous false\npassword_file /etc/mosquitto/essai\n" | sudo tee /etc/mosquitto/essai.conf
+          sudo mosquitto -c /etc/mosquitto/essai.conf -d
           sleep 1
           cd sortie && nohup python3 ../.github/essai-dyson/faux_dyson.py > faux.log 2>&1 &
       - name: Activer KVM
