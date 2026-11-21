@@ -14,6 +14,7 @@
 
     <queries>
         <package android:name="com.tuya.smartlife" />
+        <package android:name="com.dyson.mobile.android" />
         <package android:name="fr.hadesdray.youpub.tv" />
         <package android:name="fr.hadesdray.youpub" />
         <package android:name="com.nvidia.geforcenow" />

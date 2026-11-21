@@ -1,0 +1,76 @@
+name: Fabrication et essai Ma Maison (Dyson)
+
+on:
+  push:
+    branches: [essai-dyson]
+
+permissions:
+  contents: write
+
+jobs:
+  essai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+      - name: Fabrication
+        run: gradle assembleDebug --no-daemon --console=plain 2>&1 | tee fabrication.txt | grep -E "^e:|error|FAIL|BUILD" || true
+      - name: Ranger les APK
+        run: |
+          mkdir -p sortie
+          cp app/build/outputs/apk/debug/app-arm64-v8a-debug.apk sortie/ma-maison-arm64.apk
+          cp app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk sortie/ma-maison-arm32.apk
+          cp fabrication.txt sortie/
+      - name: Faux appareils Dyson (même protocole)
+        run: |
+          sudo apt-get -qq update && sudo apt-get -qq install -y mosquitto > /dev/null
+          pip install -q paho-mqtt
+          sudo mosquitto_passwd -c -b /etc/mosquitto/essai VEN-EU-TEST0001 cleventilo
+          sudo mosquitto_passwd -b /etc/mosquitto/essai ROB-EU-TEST0002 clerobot
+          sudo mosquitto_passwd -b /etc/mosquitto/essai faux faux
+          sudo chmod 644 /etc/mosquitto/essai
+          printf "listener 1883 0.0.0.0\nallow_anonymous false\npassword_file /etc/mosquitto/essai\n" > mq.conf
+          mosquitto -c mq.conf -d
+          sleep 1
+          cd sortie && nohup python3 ../.github/essai-dyson/faux_dyson.py > faux.log 2>&1 &
+      - name: Activer KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Téléphone virtuel
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 31
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          working-directory: sortie
+          script: |
+            adb install -r ma-maison-arm64.apk > installation.txt 2>&1 || true
+            adb shell pm grant fr.hadesdray.mamaison android.permission.RECORD_AUDIO || true
+            adb shell am start -n fr.hadesdray.mamaison/.MainActivity ; sleep 12
+            python3 ../.github/essai-dyson/pilote.py cap:1-accueil tap:Dyson dormir:2 cap:2-dyson-vide tap:Relier dormir:2 cap:3-relier retour tap:Autre dormir:1 cap:4-etiquette retour retour > pilote1.txt 2>&1 || true
+            adb shell am force-stop fr.hadesdray.mamaison
+            adb push ../.github/essai-dyson/maison.xml /data/local/tmp/maison.xml
+            adb shell chmod 644 /data/local/tmp/maison.xml
+            adb shell run-as fr.hadesdray.mamaison mkdir -p shared_prefs
+            adb shell run-as fr.hadesdray.mamaison cp /data/local/tmp/maison.xml shared_prefs/maison.xml
+            adb shell am start -n fr.hadesdray.mamaison/.MainActivity ; sleep 10
+            python3 ../.github/essai-dyson/pilote.py tap:Dyson dormir:2 cap:5-dyson-relie tap:Salon dormir:8 cap:6-ventilo tap:Allumer dormir:6 cap:7-ventilo-allume tap:Oscillation dormir:6 cap:8-oscillation retour tap:Robot dormir:8 cap:9-robot tap:Lancer dormir:6 cap:10-robot-menage > pilote2.txt 2>&1 || true
+            adb logcat -d -s AndroidRuntime:E > plantages.txt || true
+      - name: Ranger les résultats
+        if: always()
+        run: |
+          cd sortie && cp ../fabrication.txt . 2>/dev/null; git init -q && git checkout -q -b resultat-dyson
+          git config user.name essai && git config user.email essai@users.noreply.github.com
+          git add -A && git commit -qm "Essai Dyson" && git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" resultat-dyson

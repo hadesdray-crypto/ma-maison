@@ -61,6 +61,7 @@ class MainActivity : Activity() {
     private lateinit var passerelle: Passerelle
     private lateinit var moteur: Moteur
     private lateinit var smartLife: SmartLife
+    private lateinit var dyson: Dyson
     private lateinit var diffusion: Diffusion
     private lateinit var miseAJour: MiseAJour
     private val prefs by lazy { getSharedPreferences("maison", Context.MODE_PRIVATE) }
@@ -80,6 +81,7 @@ class MainActivity : Activity() {
         passerelle = Passerelle(this)
         moteur = Moteur(this)
         smartLife = SmartLife(this)
+        dyson = Dyson(this)
         diffusion = Diffusion(this)
         miseAJour = MiseAJour(this)
         demanderAccesUneFois()
@@ -98,6 +100,7 @@ class MainActivity : Activity() {
 
     private fun ouvrir(nom: String, ecran: () -> Unit, racine: Boolean = false) {
         arreterMinuteur()
+        dyson.arreterReception()
         if (racine) pile.clear()
         pile.add(ecran)
         ecranActuel = nom
@@ -107,6 +110,7 @@ class MainActivity : Activity() {
     @Deprecated("Flèche retour d'Android")
     override fun onBackPressed() {
         arreterMinuteur()
+        dyson.arreterReception()
         if (pile.size > 1) {
             pile.removeAt(pile.size - 1)
             rafraichir()
@@ -369,6 +373,7 @@ class MainActivity : Activity() {
             tuile("YouPub", "Vidéos, musique et télé sans pub") { ouvrirYouPub() },
             tuile("Smart Life", if (smartLife.pret) "Relié — ouvrir l'appli Smart Life" else "Ouvrir l'appli Smart Life") { ouvrirAppli("com.tuya.smartlife", "Smart Life") },
             tuile("Google Home", "Ouvrir l'appli Google Home") { ouvrirAppli("com.google.android.apps.chromecast.app", "Google Home") },
+            tuile("Dyson", if (dyson.relie) "${dyson.machines.size} appareil(s) : ventilateur, aspirateur" else "Relier ton compte Dyson") { ouvrir("Dyson", { dysonAccueil() }) },
             tuile("Ajouter un appareil", if (smartLife.pret) "Brancher un nouvel appareil" else "Relier Smart Life à Ma Maison") { ouvrir("Ajouter", { ajouter() }) },
             tuile("Réglages", "Mode tablette, PC, mises à jour") { ouvrir("Réglages", { reglages() }) }
         )
@@ -1060,6 +1065,236 @@ class MainActivity : Activity() {
         }
     }
 
+    // ---------- Dyson (ventilateur, aspirateur) ----------
+
+    private fun champ(c: LinearLayout, titre: String, valeur: String, type: Int): EditText {
+        texte(c, titre, 15f, cAccent)
+        val e = EditText(this)
+        e.setText(valeur)
+        e.setTextColor(cTexte)
+        e.setHintTextColor(cGris)
+        e.isSingleLine = true
+        e.inputType = type
+        c.addView(e)
+        return e
+    }
+
+    private fun ouvrirMyDyson() {
+        packageManager.getLaunchIntentForPackage("com.dyson.mobile.android")?.let { startActivity(it); return }
+        try {
+            val lanceur = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            for (r in packageManager.queryIntentActivities(lanceur, 0)) {
+                val p = r.activityInfo?.packageName ?: continue
+                if (p == packageName) continue
+                if (r.loadLabel(packageManager).toString().lowercase().contains("dyson")) {
+                    packageManager.getLaunchIntentForPackage(p)?.let { startActivity(it); return }
+                }
+            }
+        } catch (e: Exception) { }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://search?q=MyDyson")))
+        } catch (e: Exception) {
+            try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/search?q=MyDyson"))) } catch (x: Exception) { message("L'appli MyDyson n'est pas installée sur cet appareil.") }
+        }
+    }
+
+    private fun dysonAccueil() {
+        val c = page("Dyson", "Ventilateur et aspirateur, par le Wi-Fi de la maison")
+        val tele = Tv.isTv(this)
+        if (!dyson.relie) {
+            texte(c, "Relie une seule fois ton compte MyDyson : tes appareils arrivent ici tout seuls, sans nouvel appairage.", 16f, cTexte)
+            if (tele) bouton(c, "Recevoir du téléphone (rien à taper)") { ouvrir("Recevoir Dyson", { recevoirDyson() }) }
+            bouton(c, "Relier mon compte Dyson") { ouvrir("Relier Dyson", { relierDyson() }) }
+            if (!tele) bouton(c, "Recevoir d'un autre téléphone") { ouvrir("Recevoir Dyson", { recevoirDyson() }) }
+            bouton(c, "Autre façon : l'étiquette de l'appareil") { ouvrir("Étiquette Dyson", { dysonEtiquette() }) }
+            bouton(c, "Ouvrir l'appli MyDyson") { ouvrirMyDyson() }
+            return
+        }
+        val tuiles = dyson.machines.map { m ->
+            val info = when {
+                !m.pilotable -> "Se pilote dans l'appli MyDyson"
+                m.robot -> "Aspirateur robot"
+                else -> "Ventilateur, purificateur"
+            }
+            tuile(m.nom, info) { if (m.pilotable) ouvrir("Dyson " + m.serie, { dysonMachine(m.serie) }) else ouvrirMyDyson() }
+        }
+        grille(c, tuiles)
+        texte(c, "Le pilotage direct marche sur le Wi-Fi de la maison. Ailleurs, utilise l'appli MyDyson.")
+        bouton(c, "Ouvrir l'appli MyDyson") { ouvrirMyDyson() }
+        if (!tele) {
+            val etat = TextView(this)
+            bouton(c, "Envoyer à la télé (ou à une tablette)") {
+                etat.text = "Recherche de la télé qui attend…"
+                enFond({ dyson.envoyerALaTele() }) { ok ->
+                    etat.text = if (ok) "C'est envoyé : la télé a tes appareils Dyson." else dyson.erreur
+                    etat.setTextColor(if (ok) cVert else cAccent)
+                }
+            }
+            etat.setTextColor(cGris)
+            etat.textSize = taille(15f)
+            etat.setPadding(dp(6), dp(6), dp(6), dp(6))
+            c.addView(etat)
+        }
+        bouton(c, "Recevoir du téléphone") { ouvrir("Recevoir Dyson", { recevoirDyson() }) }
+        bouton(c, "Relier à nouveau (nouvel appareil Dyson)") { ouvrir("Relier Dyson", { relierDyson() }) }
+        bouton(c, "Délier Dyson de cet appareil") {
+            AlertDialog.Builder(this)
+                .setTitle("Délier Dyson ?")
+                .setMessage("Tes appareils Dyson ne seront plus pilotés depuis Ma Maison sur cet appareil. Ils restent dans l'appli MyDyson.")
+                .setPositiveButton("Délier") { _, _ -> dyson.delier(); rafraichir() }
+                .setNegativeButton("Annuler", null)
+                .show()
+        }
+    }
+
+    private fun relierDyson() {
+        val c = page("Relier Dyson", "Une seule fois. Tes appareils restent appairés dans MyDyson.")
+        texte(c, "1. Écris l'e-mail de ton compte MyDyson, puis touche « Recevoir le code ».", 15f, cTexte)
+        val champMail = champ(c, "E-mail du compte MyDyson", dyson.email, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS)
+        var demande: String? = null
+        val etape1 = texte(c, "", 15f, cTexte)
+        bouton(c, "Recevoir le code par e-mail") {
+            etape1.text = "Demande en cours…"
+            etape1.setTextColor(cGris)
+            val mail = champMail.text.toString()
+            enFond({ dyson.demanderCode(mail) }) { id ->
+                demande = id
+                etape1.text = if (id != null) "Code envoyé : regarde tes e-mails (et les indésirables)." else dyson.erreur
+                etape1.setTextColor(if (id != null) cVert else cAccent)
+            }
+        }
+        texte(c, "2. Recopie le code reçu et ton mot de passe Dyson, puis touche « Relier ».", 15f, cTexte)
+        val champCode = champ(c, "Code reçu par e-mail", "", InputType.TYPE_CLASS_NUMBER)
+        val champMdp = champ(c, "Mot de passe Dyson", "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        val resultat = texte(c, "", 16f, cTexte)
+        bouton(c, "Relier") {
+            val d = demande
+            if (d == null) { resultat.text = "Demande d'abord le code (étape 1)."; resultat.setTextColor(cAccent); return@bouton }
+            val code = champCode.text.toString()
+            val mdp = champMdp.text.toString()
+            if (code.isBlank() || mdp.isBlank()) { resultat.text = "Remplis le code et le mot de passe."; resultat.setTextColor(cAccent); return@bouton }
+            resultat.text = "Liaison en cours…"
+            resultat.setTextColor(cGris)
+            enFond({ dyson.valider(mdp, d, code) }) { ok ->
+                champMdp.setText("")
+                if (!ok) { resultat.text = dyson.erreur; resultat.setTextColor(cAccent); return@enFond }
+                val l = dyson.machines
+                resultat.text = if (l.isEmpty()) dyson.erreur else "C'est relié : " + l.joinToString(", ") { it.nom } + "."
+                resultat.setTextColor(if (l.isEmpty()) cAccent else cVert)
+                if (l.isNotEmpty()) bouton(c, "Voir mes appareils Dyson") { onBackPressed() }
+            }
+        }
+        texte(c, "Ton mot de passe n'est pas gardé : seules les clés de tes appareils restent sur cet appareil.")
+        texte(c, "Tu te connectes à MyDyson avec Google ou Apple, sans mot de passe ? Utilise plutôt l'étiquette de l'appareil.")
+        bouton(c, "Utiliser l'étiquette de l'appareil") { ouvrir("Étiquette Dyson", { dysonEtiquette() }) }
+    }
+
+    private fun dysonEtiquette() {
+        val c = page("Étiquette de l'appareil", "Sans compte : avec l'étiquette Wi-Fi collée sur l'appareil")
+        texte(c, "Sur l'appareil (souvent dessous ou derrière le filtre) et dans son manuel, une étiquette donne le nom du Wi-Fi de l'appareil (il commence par DYSON- ou 360EYE-) et son mot de passe.", 15f, cTexte)
+        val ssid = champ(c, "Nom du Wi-Fi de l'appareil", "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS)
+        val mdp = champ(c, "Mot de passe Wi-Fi de l'appareil", "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)
+        val resultat = texte(c, "", 16f, cTexte)
+        bouton(c, "Ajouter l'appareil") {
+            if (dyson.ajouterParEtiquette(ssid.text.toString(), mdp.text.toString())) {
+                message("Appareil Dyson ajouté.")
+                onBackPressed()
+            } else {
+                resultat.text = dyson.erreur
+                resultat.setTextColor(cAccent)
+            }
+        }
+    }
+
+    private fun recevoirDyson() {
+        val c = page("Recevoir du téléphone", "Tes appareils Dyson arrivent ici sans rien taper")
+        texte(c, "Sur ton téléphone (sur le Wi-Fi de la maison) : ouvre Ma Maison, puis Dyson, puis « Envoyer à la télé ». Cet écran attend 3 minutes.", 16f, cTexte)
+        val att = attente(c, "En attente du téléphone…")
+        enFond({ dyson.recevoir() }) { n ->
+            c.removeView(att)
+            if (n > 0) {
+                message("Reçu : $n appareil(s) Dyson.")
+                onBackPressed()
+            } else {
+                texte(c, dyson.erreur, 16f, cAccent)
+                bouton(c, "Attendre encore") { rafraichir() }
+            }
+        }
+    }
+
+    private fun nombre(t: String): Double? = t.trim().toDoubleOrNull()
+
+    private fun etatRobot(e: DysonEtat): String {
+        val s = e.p("state").ifEmpty { e.p("newstate") }
+        return when {
+            s.startsWith("FAULT") -> "Problème signalé : regarde l'appli MyDyson"
+            s in setOf("FULL_CLEAN_RUNNING", "FULL_CLEAN_TRAVERSING", "FULL_CLEAN_DISCOVERING", "FULL_CLEAN_INITIATED", "MAPPING_RUNNING", "MAPPING_INITIATED") -> "Ménage en cours"
+            s.endsWith("PAUSED") -> "En pause"
+            s.endsWith("NEEDS_CHARGE") -> "Batterie faible : il retourne à la base"
+            s.endsWith("CHARGING") -> "En charge sur la base"
+            s in setOf("INACTIVE_CHARGED", "FULL_CLEAN_FINISHED", "MAPPING_FINISHED") -> "Sur la base, prêt"
+            s.endsWith("ABORTED") || s.endsWith("ABANDONED") -> "Ménage arrêté"
+            s == "MACHINE_OFF" -> "Éteint"
+            s.isEmpty() -> "État inconnu"
+            else -> s
+        }
+    }
+
+    private fun dysonMachine(serie: String) {
+        val m0 = dyson.machines.firstOrNull { it.serie == serie } ?: run { onBackPressed(); return }
+        val c = page(m0.nom, if (m0.robot) "Aspirateur robot Dyson" else "Ventilateur Dyson")
+        val att = attente(c, "Lecture de l'appareil…")
+        enFond({ dyson.etat(m0) }) { e ->
+            c.removeView(att)
+            fun m() = dyson.machines.firstOrNull { it.serie == serie } ?: m0
+            fun agir(fait: String, action: () -> Boolean) {
+                message("Envoi…")
+                enFond({ action() }) { ok ->
+                    message(if (ok) fait else dyson.erreur)
+                    if (ok) ui.postDelayed({ if (!isFinishing && ecranActuel == "Dyson $serie") rafraichir() }, 1500)
+                }
+            }
+            if (e == null) {
+                texte(c, dyson.erreur, 16f, cAccent)
+                bouton(c, "Réessayer") { rafraichir() }
+                bouton(c, "Ouvrir l'appli MyDyson") { ouvrirMyDyson() }
+                return@enFond
+            }
+            if (m().robot) {
+                texte(c, etatRobot(e), 20f, cTexte)
+                val batterie = e.p("batteryChargeLevel")
+                if (batterie.isNotEmpty()) texte(c, "Batterie : $batterie %", 16f, cTexte)
+                bouton(c, "Lancer le ménage") { agir("Ménage lancé.") { dyson.robot(m(), "START") } }
+                bouton(c, "Pause") { agir("En pause.") { dyson.robot(m(), "PAUSE") } }
+                bouton(c, "Reprendre") { agir("Ménage repris.") { dyson.robot(m(), "RESUME") } }
+                bouton(c, "Arrêter et retourner à la base") { agir("Retour à la base.") { dyson.robot(m(), "ABORT") } }
+            } else {
+                val allume = dyson.allume(m(), e)
+                val vit = e.p("fnsp")
+                val auto = if (m().ancienModele) e.p("fmod") == "AUTO" else e.p("auto") == "ON"
+                val osc = e.p("oson") in setOf("ON", "OION")
+                val nuit = e.p("nmod") == "ON"
+                val lignes = ArrayList<String>()
+                lignes.add(if (allume) "Allumé" else "Éteint")
+                if (allume) lignes.add(if (auto || vit == "AUTO") "Vitesse : automatique" else "Vitesse : " + (vit.toIntOrNull()?.toString() ?: vit) + " sur 10")
+                nombre(e.e("tact"))?.let { lignes.add(String.format(Locale.FRANCE, "Température : %.1f °C", it / 10 - 273.15)) }
+                nombre(e.e("hact"))?.let { lignes.add("Humidité : ${it.toInt()} %") }
+                (nombre(e.e("pm25")) ?: nombre(e.e("p25r")))?.let { lignes.add("Particules fines : ${it.toInt()} µg/m³") }
+                if (nombre(e.e("pm25")) == null && nombre(e.e("p25r")) == null) nombre(e.e("pact"))?.let { lignes.add("Particules : ${it.toInt()} (indice)") }
+                texte(c, lignes.joinToString("\n"), 18f, cTexte)
+                bouton(c, if (allume) "Éteindre" else "Allumer") { agir(if (allume) "Éteint." else "Allumé.") { dyson.allumer(m(), !allume) } }
+                val v = vit.toIntOrNull() ?: 5
+                bouton(c, "Vitesse moins forte") { agir("Vitesse ${(v - 1).coerceAtLeast(1)}.") { dyson.vitesse(m(), v - 1) } }
+                bouton(c, "Vitesse plus forte") { agir("Vitesse ${(v + 1).coerceAtMost(10)}.") { dyson.vitesse(m(), v + 1) } }
+                bouton(c, if (auto) "Mode automatique : oui (toucher pour arrêter)" else "Mode automatique : non (toucher pour l'activer)") { agir("C'est fait.") { dyson.auto(m(), !auto) } }
+                bouton(c, if (osc) "Oscillation : oui (toucher pour arrêter)" else "Oscillation : non (toucher pour l'activer)") { agir("C'est fait.") { dyson.oscillation(m(), e, !osc) } }
+                bouton(c, if (nuit) "Mode nuit : oui (toucher pour arrêter)" else "Mode nuit : non (toucher pour l'activer)") { agir("C'est fait.") { dyson.nuit(m(), !nuit) } }
+            }
+            bouton(c, "Actualiser") { rafraichir() }
+            bouton(c, "Ouvrir l'appli MyDyson") { ouvrirMyDyson() }
+        }
+    }
+
     // ---------- réglages ----------
 
     private fun reglages() {
@@ -1087,6 +1322,9 @@ class MainActivity : Activity() {
         texte(c, "Smart Life", 18f, cAccent)
         texte(c, if (smartLife.pret) "Relié." else "Pas encore relié.", 15f, cTexte)
         bouton(c, if (smartLife.pret) "Revoir la liaison Smart Life" else "Relier Smart Life") { ouvrir("Relier Smart Life", { relierSmartLife() }) }
+        texte(c, "Dyson", 18f, cAccent)
+        texte(c, if (dyson.relie) "Relié : ${dyson.machines.size} appareil(s)." else "Pas encore relié.", 15f, cTexte)
+        bouton(c, if (dyson.relie) "Ouvrir Dyson" else "Relier Dyson") { ouvrir("Dyson", { dysonAccueil() }) }
         texte(c, "Moteur de la maison (plus tard)", 18f, cAccent)
         texte(c, if (moteur.pret) "Réglé : " + moteur.adresse else "Pas encore installé.", 15f, cTexte)
         bouton(c, "Régler le moteur à la main") {

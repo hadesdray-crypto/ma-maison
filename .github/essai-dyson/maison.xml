@@ -1,0 +1,5 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <boolean name="acces_demandes" value="true" />
+    <string name="dyson_machines">[{&quot;serie&quot;:&quot;VEN-EU-TEST0001&quot;,&quot;nom&quot;:&quot;Salon (essai)&quot;,&quot;types&quot;:[&quot;438K&quot;,&quot;438&quot;],&quot;cle&quot;:&quot;cleventilo&quot;,&quot;ip&quot;:&quot;10.0.2.2&quot;,&quot;modele&quot;:&quot;438&quot;},{&quot;serie&quot;:&quot;ROB-EU-TEST0002&quot;,&quot;nom&quot;:&quot;Robot (essai)&quot;,&quot;types&quot;:[&quot;276&quot;],&quot;cle&quot;:&quot;clerobot&quot;,&quot;ip&quot;:&quot;10.0.2.2&quot;,&quot;modele&quot;:&quot;276&quot;}]</string>
+</map>
