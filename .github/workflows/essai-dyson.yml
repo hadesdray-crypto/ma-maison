@@ -28,6 +28,16 @@ jobs:
           cp app/build/outputs/apk/debug/app-arm64-v8a-debug.apk sortie/ma-maison-arm64.apk
           cp app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk sortie/ma-maison-arm32.apk
           cp fabrication.txt sortie/
+      - name: Copie d'essai (lecteur ouvrable depuis l'essai, seule différence)
+        run: |
+          python3 - <<'P'
+          p='app/src/main/AndroidManifest.xml';s=open(p).read()
+          i=s.index('android:name=".LecteurActivity"');j=s.index('android:exported="false"',i)
+          s=s[:j]+'android:exported="true"'+s[j+len('android:exported="false"'):];open(p,'w').write(s)
+          P
+          gradle assembleDebug --no-daemon --console=plain -q 2>&1 | tail -3
+          cp app/build/outputs/apk/debug/app-x86_64-debug.apk sortie/essai.apk 2>/dev/null || cp app/build/outputs/apk/debug/app-arm64-v8a-debug.apk sortie/essai.apk
+          git checkout app/src/main/AndroidManifest.xml
       - name: Vidéo d'essai
         run: ffmpeg -loglevel error -f lavfi -i testsrc=duration=240:size=640x360:rate=25 -f lavfi -i sine=duration=240 -c:v libx264 -preset veryfast -b:v 3M -c:a aac -shortest .github/essai-dyson/essai.mp4 || (sudo apt-get -qq install -y ffmpeg >/dev/null && ffmpeg -loglevel error -f lavfi -i testsrc=duration=240:size=640x360:rate=25 -f lavfi -i sine=duration=240 -c:v libx264 -preset veryfast -b:v 3M -c:a aac -shortest .github/essai-dyson/essai.mp4)
       - name: Faux appareils Dyson (même protocole)
@@ -59,10 +69,10 @@ jobs:
           disable-animations: true
           working-directory: sortie
           script: |
-            adb install -r ma-maison-arm64.apk > installation.txt 2>&1 || true
+            adb install -r essai.apk > installation.txt 2>&1 || true
             python3 -m http.server 8077 --directory ../.github/essai-dyson > web.log 2>&1 &
             sleep 2
-            adb shell am start -n fr.hadesdray.mamaison/.MainActivity ; sleep 8 ; adb shell run-as fr.hadesdray.mamaison am start -n fr.hadesdray.mamaison/.LecteurActivity --esa liens http://10.0.2.2:8077/essai.mp4 --esa noms Essai ; sleep 15
+            adb shell am start -n fr.hadesdray.mamaison/.LecteurActivity --esa liens http://10.0.2.2:8077/essai.mp4 --esa noms Essai ; sleep 15
             python3 ../.github/essai-dyson/pilote.py cap:1-lecture > pilote.txt 2>&1 || true
             pkill -f "http.server 8077" || true
             sleep 150
