@@ -127,6 +127,17 @@ class Dyson(private val ctx: Context) {
         Pair(0, "")
     }
 
+    /** Vrai quand le code actuel ne peut plus servir : il faut en redemander un. */
+    var codeUse: Boolean = false
+        private set
+
+    /** Explication renvoyée par Dyson, quand il en donne une. */
+    private fun detail(t: String): String = try {
+        val o = JSONObject(t)
+        val m = listOf("Message", "message", "title", "error", "errorMessage").map { o.optString(it) }.firstOrNull { it.isNotBlank() && it != "null" }
+        if (m != null) " : $m" else ""
+    } catch (e: Exception) { "" }
+
     /** Étape 1 : Dyson envoie un code par e-mail. Renvoie l'identifiant de la demande, ou null. */
     fun demanderCode(adresse: String): String? {
         erreur = ""
@@ -140,7 +151,7 @@ class Dyson(private val ctx: Context) {
         val (c2, t2) = appel("POST", "/v3/userregistration/email/auth?country=FR&culture=fr-FR", JSONObject().put("email", mail))
         if (c2 == 429) { erreur = "Trop de demandes de code : attends quelques minutes puis réessaie."; return null }
         val id = try { JSONObject(t2).optString("challengeId") } catch (e: Exception) { "" }
-        if (id.isEmpty()) { erreur = "Dyson a refusé la demande de code ($c2)."; return null }
+        if (id.isEmpty()) { erreur = "Dyson n'a pas envoyé de nouveau code (erreur $c2${detail(t2)}). Attends quelques minutes, puis touche à nouveau « Recevoir le code par e-mail »."; return null }
         email = mail
         return id
     }
@@ -148,10 +159,15 @@ class Dyson(private val ctx: Context) {
     /** Étape 2 : code reçu + mot de passe Dyson → appareils et clés enregistrés sur cet appareil. */
     fun valider(motDePasse: String, demande: String, code: String): Boolean {
         erreur = ""
+        codeUse = false
         val (c, t) = appel("POST", "/v3/userregistration/email/verify", JSONObject()
             .put("email", email).put("password", motDePasse).put("challengeId", demande).put("otpCode", code.trim()))
         if (c == 0) { erreur = "Pas de connexion à Dyson (Internet coupé ?)."; return false }
-        if (c == 400 || c == 401 || c == 403) { erreur = "Code ou mot de passe refusé par Dyson."; return false }
+        if (c in 400..499) {
+            codeUse = true
+            erreur = "Dyson a refusé (erreur $c${detail(t)}). Ce code ne peut plus servir : touche « Recevoir le code par e-mail », puis recopie le NOUVEAU code et ton mot de passe."
+            return false
+        }
         val jeton = try { JSONObject(t).optString("token") } catch (e: Exception) { "" }
         if (jeton.isEmpty()) { erreur = "Dyson n'a pas ouvert la session ($c)."; return false }
         appel("GET", "/v1/provisioningservice/application/Android/version")

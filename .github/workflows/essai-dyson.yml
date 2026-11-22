@@ -28,6 +28,18 @@ jobs:
           cp app/build/outputs/apk/debug/app-arm64-v8a-debug.apk sortie/ma-maison-arm64.apk
           cp app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk sortie/ma-maison-arm32.apk
           cp fabrication.txt sortie/
+      - name: Copie d'essai (lecteur ouvrable depuis l'essai, seule différence)
+        run: |
+          python3 - <<'P'
+          p='app/src/main/AndroidManifest.xml';s=open(p).read()
+          i=s.index('android:name=".LecteurActivity"');j=s.index('android:exported="false"',i)
+          s=s[:j]+'android:exported="true"'+s[j+len('android:exported="false"'):];open(p,'w').write(s)
+          P
+          gradle assembleDebug --no-daemon --console=plain -q 2>&1 | tail -3
+          cp app/build/outputs/apk/debug/app-x86_64-debug.apk sortie/essai.apk 2>/dev/null || cp app/build/outputs/apk/debug/app-arm64-v8a-debug.apk sortie/essai.apk
+          git checkout app/src/main/AndroidManifest.xml
+      - name: Vidéo d'essai
+        run: ffmpeg -loglevel error -f lavfi -i testsrc=duration=240:size=640x360:rate=25 -f lavfi -i sine=duration=240 -c:v libx264 -preset veryfast -b:v 3M -c:a aac -shortest .github/essai-dyson/essai.mp4 || (sudo apt-get -qq install -y ffmpeg >/dev/null && ffmpeg -loglevel error -f lavfi -i testsrc=duration=240:size=640x360:rate=25 -f lavfi -i sine=duration=240 -c:v libx264 -preset veryfast -b:v 3M -c:a aac -shortest .github/essai-dyson/essai.mp4)
       - name: Faux appareils Dyson (même protocole)
         run: |
           sudo apt-get -qq update && sudo apt-get -qq install -y mosquitto > /dev/null
@@ -57,24 +69,20 @@ jobs:
           disable-animations: true
           working-directory: sortie
           script: |
-            adb install -r ma-maison-arm64.apk > installation.txt 2>&1 || true
-            adb shell pm grant fr.hadesdray.mamaison android.permission.RECORD_AUDIO || true
-            adb shell am start -n fr.hadesdray.mamaison/.MainActivity ; sleep 12
-            python3 ../.github/essai-dyson/pilote.py cap:1-accueil tap:Dyson dormir:2 cap:2-dyson-vide tap:Relier dormir:2 cap:3-relier retour tap:Autre dormir:1 cap:4-etiquette retour retour > pilote1.txt 2>&1 || true
-            python3 ../.github/essai-dyson/pilote.py tap:Dyson tap:Recevoir dormir:2 cap:4b-attente > pilote1b.txt 2>&1 || true
-            adb forward tcp:8791 tcp:8791
-            curl -s -m 5 http://127.0.0.1:8791/ping > reception.txt || true
-            curl -s -m 5 -X POST -H "Content-Type: application/json" --data-binary @../.github/essai-dyson/envoi.json http://127.0.0.1:8791/dyson >> reception.txt || true
-            sleep 3
-            python3 ../.github/essai-dyson/pilote.py cap:4c-recu >> pilote1b.txt 2>&1 || true
-            adb shell am force-stop fr.hadesdray.mamaison
-            adb push ../.github/essai-dyson/maison.xml /data/local/tmp/maison.xml
-            adb shell chmod 644 /data/local/tmp/maison.xml
-            adb shell run-as fr.hadesdray.mamaison mkdir -p shared_prefs
-            adb shell run-as fr.hadesdray.mamaison cp /data/local/tmp/maison.xml shared_prefs/maison.xml
-            adb shell am start -n fr.hadesdray.mamaison/.MainActivity ; sleep 10
-            python3 ../.github/essai-dyson/pilote.py tap:Dyson dormir:2 cap:5-dyson-relie tap:Salon dormir:8 cap:6-ventilo tap:Allumer dormir:6 cap:7-ventilo-allume tap:Oscillation dormir:6 cap:8-oscillation retour tap:Robot dormir:8 cap:9-robot tap:Lancer dormir:6 cap:10-robot-menage > pilote2.txt 2>&1 || true
+            adb install -r essai.apk > installation.txt 2>&1 || true
+            python3 -m http.server 8077 --directory ../.github/essai-dyson > web.log 2>&1 & echo $! > web.pid
+            sleep 2
+            adb shell am start -n fr.hadesdray.mamaison/.LecteurActivity --esa liens http://10.0.2.2:8077/essai.mp4 --esa noms Essai ; sleep 15
+            python3 ../.github/essai-dyson/pilote.py cap:1-lecture > pilote.txt 2>&1 || true
+            kill $(cat web.pid) || true
+            sleep 150
+            python3 ../.github/essai-dyson/pilote.py cap:2-pendant-coupure >> pilote.txt 2>&1 || true
+            python3 -m http.server 8077 --directory ../.github/essai-dyson > web2.log 2>&1 &
+            sleep 60
+            python3 ../.github/essai-dyson/pilote.py cap:3-reprise >> pilote.txt 2>&1 || true
+            adb shell dumpsys activity activities | grep -i "mResumedActivity\|topResumedActivity" > activite.txt || true
             adb logcat -d -s AndroidRuntime:E > plantages.txt || true
+            adb logcat -d -s MaisonLecteur:I > lecteur.txt || true
       - name: Ranger les résultats
         if: always()
         run: |

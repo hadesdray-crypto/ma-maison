@@ -5,12 +5,14 @@ import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
 import com.google.android.exoplayer2.C
+import com.google.android.exoplayer2.DefaultLoadControl
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.MediaMetadata
@@ -39,6 +41,9 @@ class LecteurActivity : Activity() {
     private val minuteur = Handler(Looper.getMainLooper())
     private var imageVue = false
     private val verifierImage = Runnable { verifierImageExo() }
+
+    // Coupures de connexion : on reprend au même endroit au lieu d'abandonner
+    private var reprises = 0
 
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
@@ -74,7 +79,11 @@ class LecteurActivity : Activity() {
             return
         }
 
-        val p = ExoPlayer.Builder(this).build()
+        // Grosse réserve (jusqu'à 2 min d'avance) : la vidéo continue pendant les petites coupures
+        val reserve = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(30000, 120000, 2500, 5000)
+            .build()
+        val p = ExoPlayer.Builder(this).setLoadControl(reserve).build()
         lecteur = p
         v.player = p
         if (musique) v.controllerShowTimeoutMs = 0
@@ -109,7 +118,31 @@ class LecteurActivity : Activity() {
                 imageVue = true
             }
 
+            override fun onPlaybackStateChanged(etat: Int) {
+                Log.i("MaisonLecteur", "etat=$etat position=${p.currentPosition} reserve=${p.bufferedPosition}")
+                if (etat == Player.STATE_READY) {
+                    reprises = 0
+                    titre.text = p.currentMediaItem?.mediaMetadata?.title ?: ""
+                }
+            }
+
             override fun onPlayerError(error: PlaybackException) {
+                // Coupure de connexion (et non fichier illisible) : on reprend au même endroit, 8 essais
+                val reseau = error.errorCode in setOf(
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+                    PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+                    PlaybackException.ERROR_CODE_TIMEOUT
+                )
+                Log.i("MaisonLecteur", "erreur=${error.errorCode} reseau=$reseau reprises=$reprises")
+                if (reseau && reprises < 8) {
+                    reprises++
+                    titre.text = "Connexion coupée : reprise… ($reprises/8)"
+                    minuteur.postDelayed({
+                        if (!isFinishing && vlc == null && lecteur === p) { p.prepare(); p.play() }
+                    }, 3000L * reprises)
+                    return
+                }
                 // ExoPlayer ne sait pas lire ce fichier : VLC essaie le même, au même endroit
                 basculerVlc(p.currentMediaItemIndex, p.currentPosition)
             }
