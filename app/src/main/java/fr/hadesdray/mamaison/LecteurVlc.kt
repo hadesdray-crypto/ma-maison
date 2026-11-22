@@ -35,7 +35,7 @@ class LecteurVlc(
     // Moteur VLC : on ne saute pas d'images (vieux fichiers mal découpés) et on garde 1,5 s de réserve réseau
     private val libVlc = LibVLC(
         activite,
-        arrayListOf("--no-drop-late-frames", "--no-skip-frames", "--network-caching=1500")
+        arrayListOf("--no-drop-late-frames", "--no-skip-frames", "--network-caching=6000", "--http-reconnect")
     )
     private val lecteur = MediaPlayer(libVlc)
     private val image = VLCVideoLayout(activite)
@@ -45,6 +45,8 @@ class LecteurVlc(
     private var index = depart
     private var vueAttachee = false
     private var libere = false
+    private var reprises = 0
+    private var derniereMs = 0L
 
     // La barre du bas disparaît 3 secondes après la dernière action
     private val cacherBarre = Runnable { barre.visibility = View.GONE }
@@ -86,7 +88,18 @@ class LecteurVlc(
                 if (libere) return
                 when (e.type) {
                     MediaPlayer.Event.EndReached -> suivante()
+                    MediaPlayer.Event.TimeChanged -> if (e.timeChanged > 0) derniereMs = e.timeChanged
+                    MediaPlayer.Event.Playing -> minuteur.postDelayed({ if (!libere && lecteur.isPlaying) reprises = 0 }, 20000)
                     MediaPlayer.Event.EncounteredError -> {
+                        // Coupure de connexion : on reprend la même vidéo au même endroit (6 essais), puis seulement on passe à la suivante
+                        if (reprises < 6) {
+                            reprises++
+                            titre?.text = "Connexion coupée : reprise… (" + reprises + "/6)"
+                            val i = index; val pos = derniereMs
+                            minuteur.postDelayed({ if (!libere) jouer(i, pos) }, 3000L * reprises)
+                            return
+                        }
+                        reprises = 0
                         Toast.makeText(
                             activite,
                             "Ce fichier ne peut pas être lu (fichier abîmé ou PC éteint). On passe au suivant.",
@@ -105,6 +118,7 @@ class LecteurVlc(
     /** Lance la vidéo n° i, à partir de debutMs millisecondes. */
     private fun jouer(i: Int, debutMs: Long) {
         index = i
+        derniereMs = debutMs
         val media = Media(libVlc, Uri.parse(liens[i]))
         media.setHWDecoderEnabled(true, false) // décodage par la puce si possible, sinon par le processeur
         if (debutMs > 1000) media.addOption(":start-time=" + (debutMs / 1000))

@@ -11,8 +11,8 @@ android {
         applicationId = "fr.hadesdray.mamaison"
         minSdk = 24
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.7.1"
+        versionCode = 10
+        versionName = "1.7.2"
     }
 
     // Lecteur VLC lourd : un fichier par type de processeur (chaque appareil ne télécharge que le sien)
