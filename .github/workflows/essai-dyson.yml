@@ -70,11 +70,11 @@ jobs:
           working-directory: sortie
           script: |
             adb install -r essai.apk > installation.txt 2>&1 || true
-            python3 -m http.server 8077 --directory ../.github/essai-dyson > web.log 2>&1 &
+            python3 -m http.server 8077 --directory ../.github/essai-dyson > web.log 2>&1 & echo $! > web.pid
             sleep 2
             adb shell am start -n fr.hadesdray.mamaison/.LecteurActivity --esa liens http://10.0.2.2:8077/essai.mp4 --esa noms Essai ; sleep 15
             python3 ../.github/essai-dyson/pilote.py cap:1-lecture > pilote.txt 2>&1 || true
-            pkill -f "http.server 8077" || true
+            kill $(cat web.pid) || true
             sleep 150
             python3 ../.github/essai-dyson/pilote.py cap:2-pendant-coupure >> pilote.txt 2>&1 || true
             python3 -m http.server 8077 --directory ../.github/essai-dyson > web2.log 2>&1 &
