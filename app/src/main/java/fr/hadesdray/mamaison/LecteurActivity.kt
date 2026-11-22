@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
@@ -118,6 +119,7 @@ class LecteurActivity : Activity() {
             }
 
             override fun onPlaybackStateChanged(etat: Int) {
+                Log.i("MaisonLecteur", "etat=$etat position=${p.currentPosition} reserve=${p.bufferedPosition}")
                 if (etat == Player.STATE_READY) {
                     reprises = 0
                     titre.text = p.currentMediaItem?.mediaMetadata?.title ?: ""
@@ -132,6 +134,7 @@ class LecteurActivity : Activity() {
                     PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
                     PlaybackException.ERROR_CODE_TIMEOUT
                 )
+                Log.i("MaisonLecteur", "erreur=${error.errorCode} reseau=$reseau reprises=$reprises")
                 if (reseau && reprises < 8) {
                     reprises++
                     titre.text = "Connexion coupée : reprise… ($reprises/8)"

@@ -82,6 +82,7 @@ jobs:
             python3 ../.github/essai-dyson/pilote.py cap:3-reprise >> pilote.txt 2>&1 || true
             adb shell dumpsys activity activities | grep -i "mResumedActivity\|topResumedActivity" > activite.txt || true
             adb logcat -d -s AndroidRuntime:E > plantages.txt || true
+            adb logcat -d -s MaisonLecteur:I > lecteur.txt || true
       - name: Ranger les résultats
         if: always()
         run: |
