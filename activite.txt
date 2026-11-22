@@ -1,0 +1,1 @@
+    mResumedActivity: ActivityRecord{b9ab699 u0 fr.hadesdray.mamaison/.LecteurActivity t12}

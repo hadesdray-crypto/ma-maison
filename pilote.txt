@@ -1,0 +1,3 @@
+capture 1-lecture ['Essai']
+capture 2-pendant-coupure ['Essai']
+capture 3-reprise ['Essai']

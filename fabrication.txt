@@ -1,0 +1,107 @@
+
+Welcome to Gradle 8.10.2!
+
+Here are the highlights of this release:
+ - Support for Java 23
+ - Faster configuration cache
+ - Better configuration cache reports
+
+For more details see https://docs.gradle.org/8.10.2/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.10.2/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateDebugResValues
+> Task :app:checkDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:mergeDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:parseDebugLocalResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:processDebugManifestForPackage
+> Task :app:compressDebugAssets
+> Task :app:desugarDebugFileDependencies
+> Task :app:mergeDebugJniLibFolders
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeDebugNativeLibs
+> Task :app:processDebugResources
+> Task :app:mergeExtDexDebug
+> Task :app:mergeLibDexDebug
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libc++_shared.so, libvlc.so, libvlcjni.so.
+
+> Task :app:compileDebugKotlin
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:14:8 'class C : Any' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:15:8 'class DefaultLoadControl : Any, LoadControl' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:16:8 'interface ExoPlayer : Any, Player' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:17:8 'class MediaItem : Any, Bundleable' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:18:8 'class MediaMetadata : Any, Bundleable' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:19:8 'class PlaybackException : Exception, Bundleable' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:20:8 'interface Player : Any' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:21:8 'class Tracks : Any, Bundleable' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:22:8 'class StyledPlayerView : FrameLayout, AdViewProvider' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:31:26 'interface ExoPlayer : Any, Player' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:33:22 'class StyledPlayerView : FrameLayout, AdViewProvider' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:59:17 'constructor(p0: Context): StyledPlayerView' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:71:26 'var systemUiVisibility: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:71:52 'static field SYSTEM_UI_FLAG_LAYOUT_STABLE: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:83:23 'class DefaultLoadControl : Any, LoadControl' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:86:17 'interface ExoPlayer : Any, Player' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:93:17 'class MediaItem : Any, Bundleable' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:94:39 'class MediaMetadata : Any, Bundleable' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:98:54 'class MediaItem : Any, Bundleable' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:109:50 'class Tracks : Any, Bundleable' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:112:49 'class C : Any' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:112:96 'class C : Any' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:113:51 'class C : Any' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:113:98 'class C : Any' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:123:29 'interface Player : Any' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:129:47 'class PlaybackException : Exception, Bundleable' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:132:21 'class PlaybackException : Exception, Bundleable' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:133:21 'class PlaybackException : Exception, Bundleable' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:134:21 'class PlaybackException : Exception, Bundleable' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:135:21 'class PlaybackException : Exception, Bundleable' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:167:32 'interface Player : Any' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:169:36 'interface Player : Any' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:172:37 'class C : Any' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/LecteurActivity.kt:173:50 'class C : Any' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/MainActivity.kt:79:16 'var statusBarColor: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/MainActivity.kt:80:16 'var navigationBarColor: Int' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/MainActivity.kt:179:41 'fun onBackPressed(): Unit' is deprecated. Flèche retour d'Android.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/MainActivity.kt:1193:77 'fun onBackPressed(): Unit' is deprecated. Flèche retour d'Android.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/MainActivity.kt:1210:17 'fun onBackPressed(): Unit' is deprecated. Flèche retour d'Android.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/MainActivity.kt:1226:17 'fun onBackPressed(): Unit' is deprecated. Flèche retour d'Android.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/MainActivity.kt:1253:76 'fun onBackPressed(): Unit' is deprecated. Flèche retour d'Android.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/SmartLife.kt:183:28 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'kotlin.Any?'.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/SmartLife.kt:185:68 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'kotlin.Any?'.
+w: file:///home/runner/work/ma-maison/ma-maison/app/src/main/java/fr/hadesdray/mamaison/SmartLife.kt:186:69 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'kotlin.Any?'.
+
+> Task :app:compileDebugJavaWithJavac NO-SOURCE
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics
+> Task :app:processDebugJavaRes
+> Task :app:mergeProjectDexDebug
+> Task :app:mergeDebugJavaResource
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1795350527078.json
+
+BUILD SUCCESSFUL in 2m 23s
+35 actionable tasks: 35 executed

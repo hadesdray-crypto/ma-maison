@@ -1,0 +1,2 @@
+--------- beginning of main
+11-22 12:34:00.099  2590  2590 I MaisonLecteur: etat=2 position=0 reserve=0
