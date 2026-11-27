@@ -18,6 +18,7 @@ import android.os.Looper
 import android.speech.RecognizerIntent
 import android.text.InputType
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
@@ -27,6 +28,10 @@ import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.AbsListView
+import android.widget.BaseAdapter
+import android.widget.ListView
+import android.view.ViewGroup
 import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
@@ -46,9 +51,16 @@ import kotlin.concurrent.thread
  */
 class MainActivity : Activity() {
 
+    private companion object {
+        const val GRANDE = 2
+        const val MOYENNE = 1
+        const val PETITE = 0
+    }
+
     // Couleurs
     private val cFond = Color.parseColor("#12161F")
     private val cCarte = Color.parseColor("#1E2533")
+    private val cCarteHaute = Color.parseColor("#2A3550")
     private val cCarteActive = Color.parseColor("#3A3220")
     private val cAccent = Color.parseColor("#F2B544")
     private val cTexte = Color.parseColor("#F3F5F9")
@@ -67,6 +79,13 @@ class MainActivity : Activity() {
     private val prefs by lazy { getSharedPreferences("maison", Context.MODE_PRIVATE) }
     private var minuteur: Runnable? = null
     private var appareilsCache: List<Appareil>? = null
+
+    // Sens du changement de page : 1 = on avance, -1 = on revient, 0 = on reste sur place (pas d'animation)
+    private var sens = 0
+    // Dossiers du PC déjà ouverts : réaffichés tout de suite, puis revérifiés en fond
+    private class Connu(val base: String, val texte: String)
+    private val dossiersConnus = HashMap<String, Connu>()
+    private val positions = HashMap<String, IntArray>()
 
     private val modeTablette: Boolean
         get() = prefs.getBoolean("tablette", resources.configuration.smallestScreenWidthDp >= 600)
@@ -104,7 +123,9 @@ class MainActivity : Activity() {
         if (racine) pile.clear()
         pile.add(ecran)
         ecranActuel = nom
+        sens = if (racine) 0 else 1
         ecran()
+        sens = 0
     }
 
     @Deprecated("Flèche retour d'Android")
@@ -113,7 +134,9 @@ class MainActivity : Activity() {
         dyson.arreterReception()
         if (pile.size > 1) {
             pile.removeAt(pile.size - 1)
+            sens = -1
             rafraichir()
+            sens = 0
         } else {
             @Suppress("DEPRECATION")
             super.onBackPressed()
@@ -160,7 +183,7 @@ class MainActivity : Activity() {
     // ---------- briques d'écran ----------
 
     /** Page avec en-tête (titre, retour, petit « ? ») et un contenu défilant. */
-    private fun page(titre: String, sousTitre: String? = null): LinearLayout {
+    private fun page(titre: String, sousTitre: String? = null, defilant: Boolean = true): LinearLayout {
         arreterMinuteur()
         val racine = LinearLayout(this)
         racine.orientation = LinearLayout.VERTICAL
@@ -203,15 +226,40 @@ class MainActivity : Activity() {
             s.setPadding(dp(18), 0, dp(18), dp(8))
             racine.addView(s)
         }
-        val defil = ScrollView(this)
-        defil.isFillViewport = true
         val contenu = LinearLayout(this)
         contenu.orientation = LinearLayout.VERTICAL
-        contenu.setPadding(dp(12), dp(4), dp(12), dp(24))
-        defil.addView(contenu)
-        racine.addView(defil, LinearLayout.LayoutParams(-1, 0, 1f))
+        if (defilant) {
+            val defil = ScrollView(this)
+            defil.isFillViewport = true
+            contenu.setPadding(dp(12), dp(4), dp(12), dp(24))
+            defil.addView(contenu)
+            racine.addView(defil, LinearLayout.LayoutParams(-1, 0, 1f))
+        } else {
+            // Page à longue liste : c'est la liste elle-même qui défile (elle ne fabrique que les lignes visibles)
+            contenu.setPadding(dp(12), dp(4), dp(12), 0)
+            racine.addView(contenu, LinearLayout.LayoutParams(-1, 0, 1f))
+        }
         setContentView(racine)
+        // Passage en douceur d'une page à l'autre
+        val s = sens
+        sens = 0
+        if (s != 0) {
+            racine.alpha = 0f
+            racine.translationX = dp(26) * s.toFloat()
+            racine.animate().alpha(1f).translationX(0f).setDuration(170).start()
+        }
         return contenu
+    }
+
+    /** Petit retour visuel : l'élément s'enfonce légèrement sous le doigt. */
+    private fun effetAppui(v: View) {
+        v.setOnTouchListener { vue, e ->
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> vue.animate().scaleX(0.96f).scaleY(0.96f).alpha(0.85f).setDuration(70).start()
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> vue.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(130).start()
+            }
+            false
+        }
     }
 
     private fun rond(couleur: Int, rayon: Int): GradientDrawable {
@@ -241,34 +289,80 @@ class MainActivity : Activity() {
         b.background = rond(cAccent, dp(14))
         b.setPadding(dp(16), dp(12), dp(16), dp(12))
         b.setOnClickListener { action() }
+        effetAppui(b)
         val lp = LinearLayout.LayoutParams(-1, -2)
         lp.setMargins(dp(4), dp(8), dp(4), dp(4))
         parent.addView(b, lp)
         return b
     }
 
-    /** Grande tuile : titre + information. */
-    private fun tuile(titre: String, info: String, active: Boolean = false, action: () -> Unit): LinearLayout {
+    /** Tuile : titre + information. Trois tailles : grande, moyenne (par défaut), petite (titre seul). */
+    private fun tuile(titre: String, info: String, active: Boolean = false, format: Int = MOYENNE, action: () -> Unit): LinearLayout {
         val t = LinearLayout(this)
         t.orientation = LinearLayout.VERTICAL
-        t.background = rond(if (active) cCarteActive else cCarte, dp(18))
-        t.setPadding(dp(16), dp(16), dp(16), dp(16))
-        t.minimumHeight = dp(if (modeTablette) 130 else 96)
         val a = TextView(this)
         a.text = titre
         a.setTextColor(if (active) cAccent else cTexte)
-        a.textSize = taille(18f)
         a.setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+        when (format) {
+            GRANDE -> {
+                val fond = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(if (active) cCarteActive else cCarteHaute, if (active) cCarteActive else cCarte))
+                fond.cornerRadius = dp(22).toFloat()
+                t.background = fond
+                t.setPadding(dp(18), dp(16), dp(18), dp(16))
+                t.minimumHeight = dp(if (modeTablette) 176 else 132)
+                val trait = View(this)
+                trait.background = rond(cAccent, dp(2))
+                val lpt = LinearLayout.LayoutParams(dp(30), dp(4))
+                lpt.setMargins(0, dp(2), 0, dp(12))
+                t.addView(trait, lpt)
+                a.textSize = taille(23f)
+            }
+            PETITE -> {
+                t.background = rond(if (active) cCarteActive else cCarte, dp(14))
+                t.setPadding(dp(6), dp(8), dp(6), dp(8))
+                t.minimumHeight = dp(if (modeTablette) 72 else 56)
+                t.gravity = Gravity.CENTER
+                a.textSize = taille(13f)
+                a.gravity = Gravity.CENTER
+                a.maxLines = 2
+            }
+            else -> {
+                t.background = rond(if (active) cCarteActive else cCarte, dp(18))
+                t.setPadding(dp(16), dp(16), dp(16), dp(16))
+                t.minimumHeight = dp(if (modeTablette) 130 else 96)
+                a.textSize = taille(18f)
+            }
+        }
         t.addView(a)
-        val b = TextView(this)
-        b.text = info
-        b.setTextColor(cGris)
-        b.textSize = taille(13f)
-        b.setPadding(0, dp(6), 0, 0)
-        t.addView(b)
+        if (format != PETITE) {
+            val b = TextView(this)
+            b.text = info
+            b.setTextColor(cGris)
+            b.textSize = taille(if (format == GRANDE) 14f else 13f)
+            b.setPadding(0, dp(6), 0, 0)
+            t.addView(b)
+        } else t.contentDescription = "$titre. $info"
         t.isClickable = true
         t.setOnClickListener { action() }
+        effetAppui(t)
         return t
+    }
+
+    /** Range des vues en rangées égales ; la dernière rangée est complétée par du vide. */
+    private fun rangees(parent: LinearLayout, vues: List<View>, parRangee: Int) {
+        var i = 0
+        while (i < vues.size) {
+            val r = LinearLayout(this)
+            r.orientation = LinearLayout.HORIZONTAL
+            for (j in 0 until parRangee) {
+                val lp = LinearLayout.LayoutParams(0, -1, 1f)
+                lp.setMargins(dp(5), dp(5), dp(5), dp(5))
+                if (i + j < vues.size) r.addView(vues[i + j], lp) else r.addView(View(this), lp)
+            }
+            parent.addView(r, LinearLayout.LayoutParams(-1, -2))
+            i += parRangee
+        }
     }
 
     private fun grille(parent: LinearLayout, tuiles: List<View>) {
@@ -349,35 +443,8 @@ class MainActivity : Activity() {
         val parler = bouton(c, "Parler à la maison") { ecouter() }
         parler.contentDescription = "Donner un ordre à la voix"
 
-        val apps = appareilsCache
-        fun compte(dom: Set<String>, allumes: Boolean = false): String {
-            val l = apps ?: return if (moteur.pret || smartLife.pret) "…" else "À relier"
-            val n = l.filter { it.domaine in dom }
-            if (n.isEmpty()) return "Aucun appareil branché"
-            return if (allumes) "${n.count { it.allume }} allumé(s) sur ${n.size}" else "${n.size} appareil(s)"
-        }
-        val tuiles = listOf(
-            tuile("Vidéos", "Films et vidéos du PC") { ouvrir("Vidéos", { medias("videos", "Vidéos") }) },
-            tuile("Photos", "Images du PC") { ouvrir("Photos", { medias("photos", "Photos") }) },
-            tuile("Musique", "Musiques du PC") { ouvrir("Musique", { medias("musique", "Musique") }) },
-            tuile("Lumières", compte(setOf("light"), true)) { ouvrir("Lumières", { appareilsDe("Lumières", setOf("light"), "lumière") }) },
-            tuile("Volets et portes", compte(setOf("cover", "lock"))) { ouvrir("Volets", { appareilsDe("Volets et portes", setOf("cover", "lock"), "volet ou porte") }) },
-            tuile("Prises", compte(setOf("switch"), true)) { ouvrir("Prises", { appareilsDe("Prises", setOf("switch"), "prise") }) },
-            tuile("Caméras", compte(setOf("camera"))) { ouvrir("Caméras", { cameras() }) },
-            tuile("Capteurs", compte(setOf("sensor", "binary_sensor", "weather", "climate"))) { ouvrir("Capteurs", { capteurs() }) },
-            tuile("Consommation", "Électricité, eau, gaz") { ouvrir("Consommation", { consommation() }) },
-            tuile("Télé et enceintes", if (diffusion.enCours()) "Envoi en cours — télécommande" else "Nest Mini, Freebox, télé") { ouvrir("Télé", { teleEnceintes() }) },
-            tuile("Ambiances", compte(setOf("scene", "script"))) { ouvrir("Ambiances", { appareilsDe("Ambiances", setOf("scene", "script"), "ambiance") }) },
-            tuile("Plannings", "Allumer, éteindre à heure fixe") { ouvrir("Plannings", { plannings() }) },
-            tuile("Jeux", "GeForce Now, Amazon, Xbox…") { ouvrir("Jeux", { jeux() }) },
-            tuile("YouPub", "Vidéos, musique et télé sans pub") { ouvrirYouPub() },
-            tuile("Smart Life", if (smartLife.pret) "Relié — ouvrir l'appli Smart Life" else "Ouvrir l'appli Smart Life") { ouvrirAppli("com.tuya.smartlife", "Smart Life") },
-            tuile("Google Home", "Ouvrir l'appli Google Home") { ouvrirAppli("com.google.android.apps.chromecast.app", "Google Home") },
-            tuile("Dyson", if (dyson.relie) "${dyson.machines.size} appareil(s) : ventilateur, aspirateur" else "Relier ton compte Dyson") { ouvrir("Dyson", { dysonAccueil() }) },
-            tuile("Ajouter un appareil", if (smartLife.pret) "Brancher un nouvel appareil" else "Relier Smart Life à Ma Maison") { ouvrir("Ajouter", { ajouter() }) },
-            tuile("Réglages", "Mode tablette, PC, mises à jour") { ouvrir("Réglages", { reglages() }) }
-        )
-        grille(c, tuiles)
+        mosaique(c, cases().filter { lieu(it) == "accueil" })
+        texte(c, "Appui long sur une tuile : changer sa taille ou sa place.", 12f)
 
         enFond({
             val p = passerelle.trouver()
@@ -404,20 +471,142 @@ class MainActivity : Activity() {
         }
     }
 
+    // ---------- tuiles de l'accueil : tailles, ordre, tuile « Maison » ----------
+
+    private class Case(val id: String, val titre: String, val court: String, val info: String,
+                       val formatDefaut: Int, val lieuDefaut: String, val action: () -> Unit)
+
+    private fun compte(dom: Set<String>, allumes: Boolean = false): String {
+        val l = appareilsCache ?: return if (moteur.pret || smartLife.pret) "…" else "À relier"
+        val n = l.filter { it.domaine in dom }
+        if (n.isEmpty()) return "Aucun appareil branché"
+        return if (allumes) "${n.count { it.allume }} allumé(s) sur ${n.size}" else "${n.size} appareil(s)"
+    }
+
+    private fun format(k: Case): Int = prefs.getInt("acc_format_" + k.id, k.formatDefaut)
+    private fun lieu(k: Case): String = prefs.getString("acc_lieu_" + k.id, k.lieuDefaut) ?: k.lieuDefaut
+
+    /** Toutes les tuiles, dans l'ordre choisi (celui de départ tant que rien n'a été déplacé). */
+    private fun cases(): List<Case> {
+        val l = arrayListOf(
+            Case("videos", "Vidéos", "Vidéos", "Films et vidéos du PC", GRANDE, "accueil") { ouvrir("Vidéos", { medias("videos", "Vidéos") }) },
+            Case("jeux", "Jeux", "Jeux", "GeForce Now, Amazon, Xbox…", GRANDE, "accueil") { ouvrir("Jeux", { jeux() }) },
+            Case("musique", "Musique", "Musique", "Musiques du PC", GRANDE, "accueil") { ouvrir("Musique", { medias("musique", "Musique") }) },
+            Case("photos", "Photos", "Photos", "Images du PC", GRANDE, "accueil") { ouvrir("Photos", { medias("photos", "Photos") }) },
+            Case("lumieres", "Lumières", "Lumières", compte(setOf("light"), true), MOYENNE, "accueil") { ouvrir("Lumières", { appareilsDe("Lumières", setOf("light"), "lumière") }) },
+            Case("tele", "Télé et enceintes", "Télé", if (diffusion.enCours()) "Envoi en cours — télécommande" else "Nest Mini, Freebox, télé", MOYENNE, "accueil") { ouvrir("Télé", { teleEnceintes() }) },
+            Case("youpub", "YouPub", "YouPub", "Vidéos, musique et télé sans pub", MOYENNE, "accueil") { ouvrirYouPub() },
+            Case("cameras", "Caméras", "Caméras", compte(setOf("camera")), MOYENNE, "accueil") { ouvrir("Caméras", { cameras() }) },
+            Case("dyson", "Dyson", "Dyson", if (dyson.relie) "${dyson.machines.size} appareil(s) : ventilateur, aspirateur" else "Relier ton compte Dyson", MOYENNE, "accueil") { ouvrir("Dyson", { dysonAccueil() }) },
+            Case("maison", "Maison", "Maison", "", MOYENNE, "accueil") { ouvrir("Maison", { groupeMaison() }) },
+            Case("prises", "Prises", "Prises", compte(setOf("switch"), true), MOYENNE, "maison") { ouvrir("Prises", { appareilsDe("Prises", setOf("switch"), "prise") }) },
+            Case("volets", "Volets et portes", "Volets", compte(setOf("cover", "lock")), MOYENNE, "maison") { ouvrir("Volets", { appareilsDe("Volets et portes", setOf("cover", "lock"), "volet ou porte") }) },
+            Case("capteurs", "Capteurs", "Capteurs", compte(setOf("sensor", "binary_sensor", "weather", "climate")), MOYENNE, "maison") { ouvrir("Capteurs", { capteurs() }) },
+            Case("conso", "Consommation", "Conso.", "Électricité, eau, gaz", MOYENNE, "maison") { ouvrir("Consommation", { consommation() }) },
+            Case("ambiances", "Ambiances", "Ambiances", compte(setOf("scene", "script")), MOYENNE, "maison") { ouvrir("Ambiances", { appareilsDe("Ambiances", setOf("scene", "script"), "ambiance") }) },
+            Case("plannings", "Plannings", "Plannings", "Allumer, éteindre à heure fixe", MOYENNE, "maison") { ouvrir("Plannings", { plannings() }) },
+            Case("smartlife", "Smart Life", "Smart Life", if (smartLife.pret) "Relié — ouvrir l'appli Smart Life" else "Ouvrir l'appli Smart Life", PETITE, "accueil") { ouvrirAppli("com.tuya.smartlife", "Smart Life") },
+            Case("googlehome", "Google Home", "Google Home", "Ouvrir l'appli Google Home", PETITE, "accueil") { ouvrirAppli("com.google.android.apps.chromecast.app", "Google Home") },
+            Case("ajouter", "Ajouter un appareil", "Ajouter", if (smartLife.pret) "Brancher un nouvel appareil" else "Relier Smart Life à Ma Maison", PETITE, "accueil") { ouvrir("Ajouter", { ajouter() }) },
+            Case("reglages", "Réglages", "Réglages", "Mode tablette, PC, mises à jour", PETITE, "accueil") { ouvrir("Réglages", { reglages() }) }
+        )
+        val ordre = (prefs.getString("acc_ordre", "") ?: "").split(",").filter { it.isNotEmpty() }
+        if (ordre.isEmpty()) return l
+        val rang = HashMap<String, Int>()
+        ordre.forEachIndexed { i, id -> rang[id] = i }
+        return l.sortedBy { rang[it.id] ?: (1000 + l.indexOf(it)) }
+    }
+
+    /** Affiche les tuiles : les grandes d'abord, puis les moyennes, puis les petites. */
+    private fun mosaique(parent: LinearLayout, liste: List<Case>) {
+        val toutes = cases()
+        val dansMaison = toutes.filter { lieu(it) == "maison" }
+        val large = resources.configuration.screenWidthDp
+        for (f in intArrayOf(GRANDE, MOYENNE, PETITE)) {
+            val groupe = liste.filter { format(it) == f && !(it.id == "maison" && dansMaison.isEmpty()) }
+            if (groupe.isEmpty()) continue
+            val vues = groupe.map { k ->
+                val info = if (k.id == "maison") dansMaison.joinToString(", ") { it.court }.lowercase(Locale.FRANCE).replaceFirstChar { it.uppercase() } else k.info
+                val v = tuile(if (f == PETITE) k.court else k.titre, info, false, f) { k.action() }
+                v.isLongClickable = true
+                v.setOnLongClickListener { reglerCase(k); true }
+                v as View
+            }
+            val parRangee = when (f) {
+                GRANDE -> if (large >= 900) 4 else 2
+                MOYENNE -> if (large >= 900) 5 else if (large >= 600) 3 else 2
+                else -> if (large >= 900) 8 else if (large >= 600) 6 else 4
+            }
+            // Sur un écran étroit, une grande tuile toute seule prend toute la largeur
+            if (f == GRANDE && parRangee == 2 && vues.size % 2 == 1) {
+                rangees(parent, vues.subList(0, 1), 1)
+                rangees(parent, vues.subList(1, vues.size), 2)
+            } else rangees(parent, vues, parRangee)
+        }
+    }
+
+    /** Appui long sur une tuile : taille, place, rangement dans la tuile « Maison ». */
+    private fun reglerCase(k: Case) {
+        val f = format(k)
+        val ici = lieu(k)
+        val choix = ArrayList<Pair<String, () -> Unit>>()
+        fun choixTaille(nom: String, valeur: Int) {
+            choix.add(Pair(if (f == valeur) "$nom (taille actuelle)" else "Taille : $nom") { prefs.edit().putInt("acc_format_" + k.id, valeur).apply() })
+        }
+        choixTaille("Grande", GRANDE)
+        choixTaille("Moyenne", MOYENNE)
+        choixTaille("Petite", PETITE)
+        choix.add(Pair("Avancer d'une place") { deplacer(k, -1) })
+        choix.add(Pair("Reculer d'une place") { deplacer(k, 1) })
+        if (k.id != "maison" && k.id != "reglages") {
+            if (ici == "accueil") choix.add(Pair("Ranger dans la tuile « Maison »") { prefs.edit().putString("acc_lieu_" + k.id, "maison").apply() })
+            else choix.add(Pair("Mettre sur l'accueil") { prefs.edit().putString("acc_lieu_" + k.id, "accueil").apply() })
+        }
+        choix.add(Pair("Tout remettre comme au départ") {
+            val e = prefs.edit()
+            for (cle in prefs.all.keys) if (cle.startsWith("acc_")) e.remove(cle)
+            e.apply()
+        })
+        AlertDialog.Builder(this)
+            .setTitle(k.titre)
+            .setItems(choix.map { it.first }.toTypedArray()) { _, i -> choix[i].second(); rafraichir() }
+            .setNegativeButton("Fermer", null)
+            .show()
+    }
+
+    /** Échange la tuile avec sa voisine (même endroit, même taille). */
+    private fun deplacer(k: Case, pas: Int) {
+        val toutes = cases()
+        val voisines = toutes.filter { lieu(it) == lieu(k) && format(it) == format(k) }
+        val i = voisines.indexOfFirst { it.id == k.id }
+        val j = i + pas
+        if (i < 0 || j < 0 || j >= voisines.size) { message(if (pas < 0) "Cette tuile est déjà la première." else "Cette tuile est déjà la dernière."); return }
+        val ids = ArrayList(toutes.map { it.id })
+        val a = ids.indexOf(k.id)
+        val b = ids.indexOf(voisines[j].id)
+        ids[a] = voisines[j].id
+        ids[b] = k.id
+        prefs.edit().putString("acc_ordre", ids.joinToString(",")).apply()
+    }
+
+    private fun groupeMaison() {
+        val c = page("Maison", "Le reste de la maison, rangé ici")
+        val l = cases().filter { lieu(it) == "maison" }
+        if (l.isEmpty()) texte(c, "Rien n'est rangé ici. Sur l'accueil, fais un appui long sur une tuile puis « Ranger dans la tuile Maison ».")
+        mosaique(c, l)
+        texte(c, "Appui long sur une tuile : changer sa taille, sa place, ou la remettre sur l'accueil.", 12f)
+    }
+
     // ---------- médias du PC ----------
 
     private fun medias(type: String, titre: String) {
         val c = page(titre, "Sur le PC de la maison")
-        val att = attente(c, "Connexion au PC…")
-        enFond({
-            val p = passerelle.trouver()
-            Pair(p, p?.let { Reseau.lire("$it/racines?type=$type", 5000) })
-        }) { (p, t) ->
-            c.removeView(att)
-            if (p == null || t == null) {
-                pcIntrouvable(c)
-                return@enFond
-            }
+        val cle = "racines|$type"
+        val connu = dossiersConnus[cle]
+        var affiche: String? = null
+        fun montrer(t: String) {
+            affiche = t
+            c.removeAllViews()
             val tab = (try { JSONObject(t).optJSONArray("racines") } catch (e: Exception) { null }) ?: JSONArray()
             if (tab.length() == 0) texte(c, "Aucun dossier trouvé sur le PC pour cette rubrique.")
             val tuiles = ArrayList<View>()
@@ -429,6 +618,19 @@ class MainActivity : Activity() {
             }
             grille(c, tuiles)
         }
+        if (connu != null) montrer(connu.texte) else attente(c, "Connexion au PC…")
+        enFond({
+            val p = passerelle.trouver()
+            Pair(p, p?.let { Reseau.lire("$it/racines?type=$type", 5000) })
+        }) { (p, t) ->
+            if (p == null || t == null) {
+                c.removeAllViews()
+                pcIntrouvable(c)
+                return@enFond
+            }
+            dossiersConnus[cle] = Connu(p, t)
+            if (t != affiche) montrer(t)
+        }
     }
 
     private fun pcIntrouvable(c: LinearLayout) {
@@ -438,44 +640,129 @@ class MainActivity : Activity() {
     }
 
     private fun dossier(type: String, nom: String, chemin: String) {
-        val c = page(nom)
-        val att = attente(c, "Lecture du dossier…")
+        val c = page(nom, defilant = false)
+        val cle = "$type|$chemin"
+        val connu = dossiersConnus[cle]
+        var affiche: Connu? = null
+        fun montrer(k: Connu) {
+            affiche = k
+            c.removeAllViews()
+            remplirDossier(c, type, cle, k.base, k.texte)
+        }
+        // Dossier déjà ouvert : affiché tout de suite, puis revérifié en fond
+        if (connu != null) montrer(connu) else attente(c, "Lecture du dossier…")
         enFond({
             val p = passerelle.trouver()
             Pair(p, p?.let { Reseau.lire("$it/liste?type=$type&chemin=" + Reseau.encode(chemin), 15000) })
         }) { (p, t) ->
-            c.removeView(att)
             if (p == null || t == null) {
+                c.removeAllViews()
                 pcIntrouvable(c)
                 return@enFond
             }
-            val o = try { JSONObject(t) } catch (e: Exception) { JSONObject() }
-            val dossiers = o.optJSONArray("dossiers") ?: JSONArray()
-            val fichiers = o.optJSONArray("fichiers") ?: JSONArray()
-            if (dossiers.length() == 0 && fichiers.length() == 0) texte(c, "Ce dossier est vide.")
-            val noms = Array(fichiers.length()) { fichiers.getJSONObject(it).optString("nom") }
-            val liens = Array(fichiers.length()) { passerelle.lienFichier(p, fichiers.getJSONObject(it).optString("chemin")) }
-            if (fichiers.length() > 0 && type != "photos") {
-                bouton(c, if (type == "musique") "Tout écouter ici" else "Tout lire ici à la suite") { lire(liens, noms, 0, type == "musique") }
+            val neuf = Connu(p, t)
+            dossiersConnus[cle] = neuf
+            if (affiche?.texte != t || affiche?.base != p) montrer(neuf)
+        }
+    }
+
+    /** Contenu d'un dossier : deux boutons fixes en haut, puis une liste qui ne fabrique que les lignes visibles. */
+    private fun remplirDossier(c: LinearLayout, type: String, cle: String, p: String, t: String) {
+        val o = try { JSONObject(t) } catch (e: Exception) { JSONObject() }
+        val dossiers = o.optJSONArray("dossiers") ?: JSONArray()
+        val fichiers = o.optJSONArray("fichiers") ?: JSONArray()
+        val nd = dossiers.length()
+        val nf = fichiers.length()
+        if (nd == 0 && nf == 0) { texte(c, "Ce dossier est vide."); return }
+        val noms = Array(nf) { fichiers.getJSONObject(it).optString("nom") }
+        val liens = Array(nf) { passerelle.lienFichier(p, fichiers.getJSONObject(it).optString("chemin")) }
+        val poids = LongArray(nf) { fichiers.getJSONObject(it).optLong("taille") / (1024 * 1024) }
+        val nomsDossiers = Array(nd) { dossiers.getJSONObject(it).optString("nom") }
+        val cheminsDossiers = Array(nd) { dossiers.getJSONObject(it).optString("chemin") }
+
+        if (nf > 0) {
+            val haut = LinearLayout(this)
+            haut.orientation = LinearLayout.HORIZONTAL
+            fun petit(b: Button) {
+                b.textSize = taille(14f)
+                val lp = LinearLayout.LayoutParams(0, -1, 1f)
+                lp.setMargins(dp(4), dp(4), dp(4), dp(8))
+                b.layoutParams = lp
             }
-            if (fichiers.length() > 0) {
-                bouton(c, if (type == "musique") "Envoyer sur une enceinte ou la télé" else "Envoyer sur la télé") { diffusion.envoyer(liens, noms, 0, type) }
-            }
-            for (i in 0 until dossiers.length()) {
-                val d = dossiers.getJSONObject(i)
-                ligne(c, "▸  " + d.optString("nom"), "Dossier") {
-                    ouvrir(ecranActuel + "/" + d.optString("nom"), { dossier(type, d.optString("nom"), d.optString("chemin")) })
+            if (type != "photos") petit(bouton(haut, if (type == "musique") "Tout écouter ici" else "Tout lire ici à la suite") { lire(liens, noms, 0, type == "musique") })
+            petit(bouton(haut, if (type == "musique") "Envoyer sur une enceinte ou la télé" else "Envoyer sur la télé") { diffusion.envoyer(liens, noms, 0, type) })
+            c.addView(haut, LinearLayout.LayoutParams(-1, -2))
+        }
+
+        val liste = ListView(this)
+        liste.divider = null
+        liste.dividerHeight = 0
+        liste.cacheColorHint = Color.TRANSPARENT
+        liste.clipToPadding = false
+        liste.setPadding(0, 0, 0, dp(24))
+        liste.isFastScrollEnabled = nd + nf > 80
+        // Ligne choisie : voile clair ; sur la télé, cadre blanc bien visible
+        val choisi = GradientDrawable()
+        choisi.cornerRadius = dp(12).toFloat()
+        choisi.setColor(Color.argb(40, 255, 255, 255))
+        if (Tv.isTv(this)) choisi.setStroke(dp(3), Color.WHITE)
+        liste.selector = choisi
+        liste.setDrawSelectorOnTop(true)
+        liste.adapter = object : BaseAdapter() {
+            override fun getCount() = nd + nf
+            override fun getItem(i: Int): Any = i
+            override fun getItemId(i: Int) = i.toLong()
+            override fun getView(i: Int, ancienne: View?, parent: ViewGroup?): View {
+                val vue = (ancienne as? LinearLayout) ?: LinearLayout(this@MainActivity).also { ext ->
+                    ext.orientation = LinearLayout.VERTICAL
+                    ext.setPadding(dp(4), dp(4), dp(4), dp(4))
+                    ext.layoutParams = AbsListView.LayoutParams(-1, -2)
+                    val carte = LinearLayout(this@MainActivity)
+                    carte.orientation = LinearLayout.VERTICAL
+                    carte.background = rond(cCarte, dp(12))
+                    carte.setPadding(dp(14), dp(12), dp(14), dp(12))
+                    val a = TextView(this@MainActivity)
+                    a.setTextColor(cTexte)
+                    a.textSize = taille(16f)
+                    carte.addView(a)
+                    val b = TextView(this@MainActivity)
+                    b.setTextColor(cGris)
+                    b.textSize = taille(12f)
+                    carte.addView(b)
+                    ext.addView(carte, LinearLayout.LayoutParams(-1, -2))
                 }
-            }
-            for (i in 0 until fichiers.length()) {
-                val f = fichiers.getJSONObject(i)
-                val mo = f.optLong("taille") / (1024 * 1024)
-                ligne(c, f.optString("nom"), if (mo > 0) "$mo Mo" else "") {
-                    if (type == "photos") ouvrir("Photo", { photo(liens, noms, i) })
-                    else lire(liens, noms, i, type == "musique")
+                val carte = vue.getChildAt(0) as LinearLayout
+                val a = carte.getChildAt(0) as TextView
+                val b = carte.getChildAt(1) as TextView
+                if (i < nd) {
+                    a.text = "▸  " + nomsDossiers[i]
+                    b.text = "Dossier"
+                    b.visibility = View.VISIBLE
+                } else {
+                    val f = i - nd
+                    a.text = noms[f]
+                    b.text = if (poids[f] > 0) "${poids[f]} Mo" else ""
+                    b.visibility = if (poids[f] > 0) View.VISIBLE else View.GONE
                 }
+                return vue
             }
         }
+        liste.setOnItemClickListener { _, _, i, _ ->
+            if (i < nd) ouvrir(ecranActuel + "/" + nomsDossiers[i], { dossier(type, nomsDossiers[i], cheminsDossiers[i]) })
+            else {
+                val f = i - nd
+                if (type == "photos") ouvrir("Photo", { photo(liens, noms, f) }) else lire(liens, noms, f, type == "musique")
+            }
+        }
+        // On retrouve la liste là où on l'avait laissée
+        positions[cle]?.let { liste.setSelectionFromTop(it[0], it[1]) }
+        liste.setOnScrollListener(object : AbsListView.OnScrollListener {
+            override fun onScrollStateChanged(v: AbsListView?, etat: Int) {}
+            override fun onScroll(v: AbsListView?, premier: Int, visibles: Int, total: Int) {
+                if (visibles > 0) positions[cle] = intArrayOf(premier, liste.getChildAt(0)?.top ?: 0)
+            }
+        })
+        c.addView(liste, LinearLayout.LayoutParams(-1, 0, 1f))
     }
 
     private fun ligne(parent: LinearLayout, titre: String, info: String, action: () -> Unit): LinearLayout {
@@ -496,6 +783,7 @@ class MainActivity : Activity() {
             l.addView(b)
         }
         l.setOnClickListener { action() }
+        effetAppui(l)
         val lp = LinearLayout.LayoutParams(-1, -2)
         lp.setMargins(dp(4), dp(4), dp(4), dp(4))
         parent.addView(l, lp)

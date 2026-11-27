@@ -47,7 +47,7 @@ object Tv {
     }
 
     private fun walk(v: View, c: Context) {
-        if (v.isClickable && v.visibility == View.VISIBLE && v !is EditText) {
+        if (v.isClickable && v.visibility == View.VISIBLE && v !is EditText && v !is android.widget.AbsListView) {
             if (!v.isFocusable) v.isFocusable = true
             if (Build.VERSION.SDK_INT >= 23 && v.getTag(MARK) == null && v.foreground == null) {
                 v.foreground = frame(c); v.setTag(MARK, true)

@@ -1,0 +1,129 @@
+name: Fabrication et essai Ma Maison (accueil)
+
+on:
+  push:
+    branches: [essai-accueil]
+
+permissions:
+  contents: write
+
+jobs:
+  fabrication:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+      - name: Appareils virtuels en plus (pour l'essai seulement)
+        run: sed -i 's/include("arm64-v8a", "armeabi-v7a")/include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")/' app/build.gradle.kts
+      - name: Fabrication
+        run: |
+          gradle assembleDebug --no-daemon --console=plain > fabrication.txt 2>&1 || true
+          grep -E "^e:|^w:.*MainActivity|error:|FAILED|BUILD" fabrication.txt || true
+          mkdir -p sortie
+          cp fabrication.txt sortie/
+          cp app/build/outputs/apk/debug/app-arm64-v8a-debug.apk sortie/ma-maison-arm64.apk
+          cp app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk sortie/ma-maison-arm32.apk
+          cp app/build/outputs/apk/debug/app-x86_64-debug.apk sortie/essai-x86_64.apk
+          cp app/build/outputs/apk/debug/app-x86-debug.apk sortie/essai-x86.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fabrication
+          path: sortie
+          retention-days: 3
+
+  essai:
+    needs: fabrication
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nom: telephone
+            cible: google_apis
+            arch: x86_64
+            profil: pixel_6
+            apk: essai-x86_64.apk
+          - nom: tablette
+            cible: google_apis
+            arch: x86_64
+            profil: pixel_c
+            apk: essai-x86_64.apk
+          - nom: tele
+            cible: android-tv
+            arch: x86
+            profil: tv_1080p
+            apk: essai-x86.apk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: fabrication
+          path: sortie
+      - name: Faux PC de la maison
+        run: |
+          ffmpeg -loglevel error -f lavfi -i testsrc=duration=20:size=640x360:rate=25 -f lavfi -i sine=duration=20 -c:v libx264 -preset veryfast -c:a aac -shortest sortie/essai.mp4 || true
+          sh .github/essai-accueil/faux_pc.sh "$PWD/sortie" "$PWD/passerelle"
+          nohup node passerelle/passerelle.js > sortie/faux-pc.log 2>&1 &
+          sleep 2
+          curl -s http://127.0.0.1:8790/ping
+          curl -s "http://127.0.0.1:8790/racines?type=videos"
+      - name: Activer KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Appareil virtuel
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 31
+          target: ${{ matrix.cible }}
+          arch: ${{ matrix.arch }}
+          profile: ${{ matrix.profil }}
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: false
+          working-directory: sortie
+          script: |
+            adb install -r ${{ matrix.apk }} > installation.txt 2>&1 || true
+            adb shell pm grant fr.hadesdray.mamaison android.permission.RECORD_AUDIO || true
+            adb shell am start -n fr.hadesdray.mamaison/.MainActivity
+            sleep 25
+            sh ../.github/essai-accueil/scenario-${{ matrix.nom }}.sh > pilote.txt 2>&1 || true
+            adb logcat -d -s AndroidRuntime:E > plantages.txt || true
+            adb shell dumpsys gfxinfo fr.hadesdray.mamaison | head -40 > fluidite.txt || true
+      - name: Ranger les résultats
+        if: always()
+        run: |
+          cd sortie && rm -f *.apk essai.mp4
+          git init -q && git checkout -q -b resultat-accueil-${{ matrix.nom }}
+          git config user.name essai && git config user.email essai@users.noreply.github.com
+          git add -A && git commit -qm "Essai accueil ${{ matrix.nom }}" && git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" resultat-accueil-${{ matrix.nom }}
+
+  publication:
+    needs: essai
+    if: contains(github.event.head_commit.message, '[publier]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: fabrication
+          path: sortie
+      - name: Mise à jour publiée sur la branche principale
+        run: |
+          cp sortie/ma-maison-arm64.apk ma-maison-arm64.apk
+          cp sortie/ma-maison-arm32.apk ma-maison-arm32.apk
+          cp sortie/ma-maison-arm32.apk ma-maison.apk
+          git config user.name fabrication && git config user.email fabrication@users.noreply.github.com
+          git add ma-maison-arm64.apk ma-maison-arm32.apk ma-maison.apk
+          git commit -qm "Ma Maison $(grep -o '"nom": *"[^"]*"' version.json | cut -d'"' -f4) : fichiers d'installation"
+          git push origin HEAD:main
