@@ -24,6 +24,8 @@ import com.google.android.exoplayer2.MediaMetadata
 import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.Tracks
+import com.google.android.exoplayer2.text.CueGroup
+import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.StyledPlayerView
 
 /**
@@ -41,10 +43,11 @@ class LecteurActivity : Activity() {
     private var liens: Array<String> = arrayOf()
     private var noms: Array<String> = arrayOf()
     private var musique = false
-    private var boutonCadrage: Button? = null
+    private var boutonReglages: Button? = null
+    private var reglages: Reglages? = null
+    private var indexReglages = -1
 
-    // Cadrage de l'image, retenu : 0 = image normale, 1 = remplir l'écran, 2 = étirer
-    private val nomsCadrage = arrayOf("Image normale", "Remplir l'écran", "Étirer")
+    // Cadrage de l'image, retenu : 0 = image normale, 1 = zoom (remplir en coupant), 2 = étirer (se choisit dans Réglages)
     private var cadrage: Int
         get() = getSharedPreferences("maison", MODE_PRIVATE).getInt("cadrage", 0).coerceIn(0, 2)
         set(v) { getSharedPreferences("maison", MODE_PRIVATE).edit().putInt("cadrage", v).apply() }
@@ -80,29 +83,36 @@ class LecteurActivity : Activity() {
         titre.setShadowLayer(6f, 0f, 0f, Color.BLACK)
         cadre.addView(titre, FrameLayout.LayoutParams(-1, -2))
         if (!musique) {
-            // Bouton « Cadrage » en haut à droite : image normale, remplir l'écran, étirer
+            // Un seul bouton « Réglages » en haut à droite : langue, sous-titres, vitesse, format de l'image
+            val rg = Reglages(this, cadre)
+            reglages = rg
+            rg.lireCadrage = { cadrage }
+            rg.poserCadrage = { cadrage = it; appliquerCadrage() }
+            rg.pilote = exoPilote
+            val d = resources.displayMetrics.density
             val bc = Button(this)
             bc.isAllCaps = false
-            bc.textSize = 14f
+            bc.textSize = 16f
+            bc.text = "Réglages"
             bc.setTextColor(Color.WHITE)
             val fond = GradientDrawable()
-            fond.setColor(Color.argb(150, 0, 0, 0))
-            fond.cornerRadius = 18 * resources.displayMetrics.density
+            fond.setColor(Color.argb(170, 0, 0, 0))
+            fond.cornerRadius = 20 * d
             bc.background = fond
-            val d = resources.displayMetrics.density
-            bc.setPadding((14 * d).toInt(), (6 * d).toInt(), (14 * d).toInt(), (6 * d).toInt())
-            bc.text = "Cadrage : " + nomsCadrage[cadrage]
-            bc.setOnClickListener {
-                cadrage = (cadrage + 1) % 3
-                bc.text = "Cadrage : " + nomsCadrage[cadrage]
-                appliquerCadrage()
-                Toast.makeText(this, nomsCadrage[cadrage], Toast.LENGTH_SHORT).show()
-            }
+            bc.minimumHeight = (48 * d).toInt()
+            bc.minHeight = (48 * d).toInt()
+            bc.setPadding((20 * d).toInt(), (8 * d).toInt(), (20 * d).toInt(), (8 * d).toInt())
+            bc.setOnClickListener { rg.ouvrir() }
             val lpc = FrameLayout.LayoutParams(-2, -2)
             lpc.gravity = Gravity.TOP or Gravity.END
-            lpc.setMargins(0, (14 * d).toInt(), (14 * d).toInt(), 0)
+            lpc.setMargins(0, (12 * d).toInt(), (12 * d).toInt(), 0)
             cadre.addView(bc, lpc)
-            boutonCadrage = bc
+            boutonReglages = bc
+            titre.setPadding(40, 40, (150 * d).toInt(), 40)
+            // Le menu de l'ancien lecteur (roue crantée, bouton sous-titres) est remplacé par « Réglages »
+            v.setShowSubtitleButton(false)
+            v.subtitleView?.visibility = View.GONE
+            v.findViewById<View>(com.google.android.exoplayer2.ui.R.id.exo_settings)?.visibility = View.GONE
             // Avec ExoPlayer, le bouton apparaît et disparaît avec les commandes du lecteur
             v.setControllerVisibilityListener(StyledPlayerView.ControllerVisibilityListener { vis ->
                 if (vlc == null) bc.visibility = vis
@@ -114,6 +124,7 @@ class LecteurActivity : Activity() {
 
         if (liens.isEmpty()) return
         titre.text = noms.getOrElse(depart) { "" }
+        debutVideo(depart)
 
         // Vieux format connu : directement VLC (plus rapide que d'attendre l'échec d'ExoPlayer)
         if (LecteurVlc.pourVlc(liens[depart], noms.getOrElse(depart) { "" })) {
@@ -128,6 +139,7 @@ class LecteurActivity : Activity() {
         val p = ExoPlayer.Builder(this).setLoadControl(reserve).build()
         lecteur = p
         v.player = p
+        reglages?.pilote = exoPilote
         if (musique) v.controllerShowTimeoutMs = 0
         for (i in liens.indices) {
             val nom = noms.getOrElse(i) { "" }
@@ -140,6 +152,7 @@ class LecteurActivity : Activity() {
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 titre.text = item?.mediaMetadata?.title ?: ""
                 val i = p.currentMediaItemIndex
+                debutVideo(i)
                 // La vidéo suivante est un vieux format : on passe à VLC pour elle
                 if (i in liens.indices && LecteurVlc.pourVlc(liens[i], noms.getOrElse(i) { "" })) {
                     basculerVlc(i, 0)
@@ -153,7 +166,13 @@ class LecteurActivity : Activity() {
                 if (tracks.isEmpty) return
                 val sonKo = tracks.containsType(C.TRACK_TYPE_AUDIO) && !tracks.isTypeSupported(C.TRACK_TYPE_AUDIO)
                 val imageKo = tracks.containsType(C.TRACK_TYPE_VIDEO) && !tracks.isTypeSupported(C.TRACK_TYPE_VIDEO)
-                if (sonKo || imageKo) basculerVlc(p.currentMediaItemIndex, p.currentPosition)
+                if (sonKo || imageKo) { basculerVlc(p.currentMediaItemIndex, p.currentPosition); return }
+                // Langue préférée et sous-titres : choisis tout seuls au début de chaque vidéo
+                if (!musique) reglages?.pistesPretes()
+            }
+
+            override fun onCues(cueGroup: CueGroup) {
+                reglages?.texteIntegre(cueGroup.cues.mapNotNull { it.text?.toString() }.joinToString("\n"))
             }
 
             override fun onRenderedFirstFrame() {
@@ -230,11 +249,84 @@ class LecteurActivity : Activity() {
             vue?.player = null
             vue?.let { cadre.removeView(it) }
             vue = null
-            vlc = LecteurVlc(this, cadre, liens, noms, i, pos, titre)
+            debutVideo(i)
+            vlc = LecteurVlc(this, cadre, liens, noms, i, pos, titre, reglages)
             appliquerCadrage()
             // Le bouton reste par-dessus l'image de VLC, toujours visible
-            boutonCadrage?.let { it.visibility = View.VISIBLE; cadre.bringChildToFront(it) }
+            boutonReglages?.let { it.visibility = View.VISIBLE; cadre.bringChildToFront(it) }
         }
+    }
+
+    /** Une nouvelle vidéo commence (une seule fois par vidéo) : sous-titres en fichier à chercher, langue à choisir. */
+    private fun debutVideo(i: Int) {
+        if (musique || i == indexReglages || i !in liens.indices) return
+        indexReglages = i
+        reglages?.nouvelleVideo(liens[i], noms.getOrElse(i) { "" })
+    }
+
+    /** Ce que le menu Réglages sait faire avec ExoPlayer. */
+    private val exoPilote = object : Pilote {
+        private val formatsImage = listOf("pgs", "dvb", "vobsub", "dvd")
+
+        private fun pistes(type: Int): List<Piste> {
+            val p = lecteur ?: return emptyList()
+            val out = ArrayList<Piste>()
+            var n = 0
+            p.currentTracks.groups.forEachIndexed { gi, g ->
+                if (g.type != type || g.length == 0) return@forEachIndexed
+                n++
+                val f = g.getTrackFormat(0)
+                var ok = g.isTrackSupported(0)
+                if (type == C.TRACK_TYPE_TEXT) {
+                    val mime = (f.sampleMimeType ?: "").lowercase()
+                    if (formatsImage.any { mime.contains(it) }) ok = false
+                }
+                out.add(Reglages.piste("g$gi", f.language, f.label, n, ok))
+            }
+            return out
+        }
+
+        override fun pistesAudio(): List<Piste> = pistes(C.TRACK_TYPE_AUDIO)
+
+        override fun audioActuel(): String? {
+            val p = lecteur ?: return null
+            p.currentTracks.groups.forEachIndexed { gi, g ->
+                if (g.type == C.TRACK_TYPE_AUDIO && g.length > 0 && g.isTrackSelected(0)) return "g$gi"
+            }
+            return null
+        }
+
+        override fun choisirAudio(id: String) {
+            val p = lecteur ?: return
+            val g = p.currentTracks.groups.getOrNull(id.removePrefix("g").toIntOrNull() ?: return) ?: return
+            if (!g.isTrackSupported(0)) {
+                // Cette langue n'est pas lisible par ExoPlayer : le lecteur de secours la lit, au même endroit
+                basculerVlc(p.currentMediaItemIndex, p.currentPosition)
+                return
+            }
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setOverrideForType(TrackSelectionOverride(g.mediaTrackGroup, 0)).build()
+        }
+
+        override fun pistesSousTitres(): List<Piste> = pistes(C.TRACK_TYPE_TEXT)
+
+        override fun choisirSousTitre(id: String?) {
+            val p = lecteur ?: return
+            val b = p.trackSelectionParameters.buildUpon()
+            if (id == null) {
+                b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            } else {
+                val g = p.currentTracks.groups.getOrNull(id.removePrefix("g").toIntOrNull() ?: return) ?: return
+                b.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                b.setOverrideForType(TrackSelectionOverride(g.mediaTrackGroup, 0))
+            }
+            p.trackSelectionParameters = b.build()
+        }
+
+        override fun position(): Long = lecteur?.currentPosition ?: 0L
+        override fun vitesse(): Float = lecteur?.playbackParameters?.speed ?: 1f
+        override fun changerVitesse(v: Float) { lecteur?.setPlaybackSpeed(v) }
+        override fun styleSousTitresChange() { }
     }
 
     /** Applique le cadrage choisi au lecteur en cours (ExoPlayer ou VLC). */
@@ -250,7 +342,26 @@ class LecteurActivity : Activity() {
 
     // Télécommande : quand VLC lit, c'est lui qui reçoit OK et les flèches (la flèche retour reste normale)
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val rg = reglages
+        // Touche « menu » : ouvre Réglages
+        if (rg != null && event.keyCode == KeyEvent.KEYCODE_MENU) {
+            if (event.action == KeyEvent.ACTION_UP) rg.ouvrir()
+            return true
+        }
         val v = vlc
+        val bouton = boutonReglages
+        if (v != null && bouton != null) {
+            if (bouton.hasFocus()) {
+                // Le bouton Réglages est choisi : OK l'ouvre, « bas » rend la main à la vidéo
+                if (event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) { if (event.action == KeyEvent.ACTION_DOWN) bouton.clearFocus(); return true }
+                return super.dispatchKeyEvent(event)
+            }
+            // « Haut » à la télécommande : va au bouton Réglages
+            if (event.keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                if (event.action == KeyEvent.ACTION_DOWN) { bouton.visibility = View.VISIBLE; bouton.requestFocus() }
+                return true
+            }
+        }
         if (v != null && v.touche(event)) return true
         return super.dispatchKeyEvent(event)
     }
@@ -268,6 +379,7 @@ class LecteurActivity : Activity() {
 
     override fun onDestroy() {
         minuteur.removeCallbacksAndMessages(null)
+        reglages?.liberer()
         lecteur?.release()
         lecteur = null
         vlc?.liberer()

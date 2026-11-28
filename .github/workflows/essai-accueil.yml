@@ -49,16 +49,25 @@ jobs:
       matrix:
         include:
           - nom: telephone
+            api: 31
             cible: google_apis
             arch: x86_64
             profil: pixel_6
             apk: essai-x86_64.apk
           - nom: tablette
+            api: 31
             cible: google_apis
             arch: x86_64
             profil: pixel_c
             apk: essai-x86_64.apk
+          - nom: ancien
+            api: 25
+            cible: google_apis
+            arch: x86_64
+            profil: Nexus 7
+            apk: essai-x86_64.apk
           - nom: tele
+            api: 31
             cible: android-tv
             arch: x86
             profil: tv_1080p
@@ -72,6 +81,7 @@ jobs:
       - name: Faux PC de la maison
         run: |
           ffmpeg -loglevel error -f lavfi -i testsrc=duration=20:size=640x360:rate=25 -f lavfi -i sine=duration=20 -c:v libx264 -preset veryfast -c:a aac -shortest sortie/essai.mp4 || true
+          sh .github/essai-accueil/fabriquer_videos.sh "$PWD/sortie"
           sh .github/essai-accueil/faux_pc.sh "$PWD/sortie" "$PWD/passerelle"
           nohup node passerelle/passerelle.js > sortie/faux-pc.log 2>&1 &
           for i in 1 2 3 4 5 6 7 8 9 10; do curl -s http://127.0.0.1:8790/ping && break; sleep 2; done
@@ -84,7 +94,7 @@ jobs:
       - name: Appareil virtuel
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 31
+          api-level: ${{ matrix.api }}
           target: ${{ matrix.cible }}
           arch: ${{ matrix.arch }}
           profile: ${{ matrix.profil }}
@@ -102,7 +112,7 @@ jobs:
       - name: Ranger les résultats
         if: always()
         run: |
-          cd sortie && rm -f *.apk essai.mp4
+          cd sortie && rm -f *.apk essai.mp4 Essai*
           git init -q && git checkout -q -b resultat-accueil-${{ matrix.nom }}
           git config user.name essai && git config user.email essai@users.noreply.github.com
           git add -A && git commit -qm "Essai accueil ${{ matrix.nom }}" && git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" resultat-accueil-${{ matrix.nom }}

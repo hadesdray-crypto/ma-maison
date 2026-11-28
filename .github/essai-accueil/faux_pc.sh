@@ -7,6 +7,8 @@ i=1; while [ $i -le 600 ]; do n=$(printf "%03d" $i); : > "$P/films/Film $n.mp4";
 truncate -s 700M "$P/films/Film 001.mp4"; truncate -s 1400M "$P/films/Film 002.mp4"
 for n in 1 2 3 4 5 6 7 8; do : > "$P/films/Saison 1/Episode $n.mkv"; done
 if [ -s "$1/essai.mp4" ]; then cp "$1/essai.mp4" "$P/videos/Essai.mp4"; else cp .github/essai-accueil/essai.mp4 "$P/videos/Essai.mp4" 2>/dev/null || : > "$P/videos/Essai.mp4"; fi
+# Vidéos d'essai du lecteur (langues, sous-titres) fabriquées par le flux
+for f in "$1"/Essai*; do [ -f "$f" ] && cp "$f" "$P/videos/"; done
 python3 - <<'PY'
 import struct, zlib
 def png(nom, c):

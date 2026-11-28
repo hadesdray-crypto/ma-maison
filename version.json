@@ -1,14 +1,13 @@
 {
-  "code": 14,
-  "nom": "1.10.0",
+  "code": 15,
+  "nom": "1.11.0",
   "apk": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison.apk",
   "changements": [
-    "Jeux : nouvelle grande tuile « Jeux des PC » pour jouer ici aux jeux du ROG et du PC fixe (appli gratuite Moonlight).",
-    "Films : appui long sur un film ou un dossier pour indiquer l'âge conseillé (Tous publics, -10, -12, -16, -18), avec une pastille de couleur.",
-    "Lecteur vidéo : bouton « Cadrage » (image normale, remplir l'écran, étirer), retenu pour la suite.",
-    "Photos : tourner à gauche ou à droite (retenu pour chaque photo), agrandir à deux doigts ou d'un double appui, glisser pour passer à la suivante.",
-    "Réglages > Apparence : six thèmes au choix (Nuit d'origine, Océan, Forêt, Prune, Braise, Clair).",
-    "Réglages > Bluetooth : chercher, reconnaître et connecter manettes, casques, enceintes et objets ; les manettes branchées sont affichées."
+    "Vidéos : tu peux choisir la langue de la vidéo (Français, Anglais, Japonais…), sans recommencer la vidéo.",
+    "Vidéos : sous-titres de la vidéo ou fichiers à côté du film (.srt, .ass, .vtt), avec choix de la taille et de la couleur.",
+    "Ma Maison retient ta langue préférée et la remet toute seule à la vidéo suivante : voix en français si elle existe, sinon la langue d'origine avec les sous-titres en français.",
+    "Lecteur vidéo : un seul bouton « Réglages » en haut à droite, avec une ligne par fonction (Langue, Sous-titres, Vitesse, Format de l'image) et sa valeur du moment.",
+    "Le bouton « Cadrage » est remplacé par « Format de l'image » dans Réglages (Adapter, Zoom, Remplir). Touche Menu de la télécommande : ouvre Réglages."
   ],
   "apk_arm64-v8a": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison-arm64.apk",
   "apk_armeabi-v7a": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison-arm32.apk"

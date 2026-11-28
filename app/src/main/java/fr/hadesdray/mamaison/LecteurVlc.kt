@@ -30,8 +30,9 @@ class LecteurVlc(
     private val noms: Array<String>,
     depart: Int,
     positionMs: Long,
-    private val titre: TextView?
-) {
+    private val titre: TextView?,
+    private val reglages: Reglages? = null
+) : Pilote {
     // Moteur VLC : on ne saute pas d'images (vieux fichiers mal découpés) et on garde 1,5 s de réserve réseau
     private val libVlc = LibVLC(
         activite,
@@ -47,6 +48,7 @@ class LecteurVlc(
     private var libere = false
     private var reprises = 0
     private var derniereMs = 0L
+    private var indexRegle = depart   // vidéo pour laquelle le menu Réglages a déjà été prévenu
 
     // La barre du bas disparaît 3 secondes après la dernière action
     private val cacherBarre = Runnable { barre.visibility = View.GONE }
@@ -89,7 +91,16 @@ class LecteurVlc(
                 when (e.type) {
                     MediaPlayer.Event.EndReached -> suivante()
                     MediaPlayer.Event.TimeChanged -> if (e.timeChanged > 0) derniereMs = e.timeChanged
-                    MediaPlayer.Event.Playing -> minuteur.postDelayed({ if (!libere && lecteur.isPlaying) reprises = 0 }, 20000)
+                    MediaPlayer.Event.Playing -> {
+                        minuteur.postDelayed({ if (!libere && lecteur.isPlaying) reprises = 0 }, 20000)
+                        // Pistes de langue et de sous-titres : connues peu après le début de la lecture
+                        reglages?.let { r ->
+                            try { lecteur.setRate(r.vitesseVoulue) } catch (x: Throwable) { }
+                            minuteur.postDelayed({ if (!libere) r.pistesPretes() }, 800)
+                            minuteur.postDelayed({ if (!libere) r.pistesPretes() }, 3000)
+                        }
+                    }
+                    MediaPlayer.Event.ESAdded -> reglages?.pistesPretes()
                     MediaPlayer.Event.EncounteredError -> {
                         // Coupure de connexion : on reprend la même vidéo au même endroit (6 essais), puis seulement on passe à la suivante
                         if (reprises < 6) {
@@ -111,6 +122,7 @@ class LecteurVlc(
             }
         })
 
+        reglages?.changerPilote(this)
         attacher()
         if (liens.isNotEmpty()) jouer(index.coerceIn(0, liens.size - 1), positionMs)
     }
@@ -119,7 +131,16 @@ class LecteurVlc(
     private fun jouer(i: Int, debutMs: Long) {
         index = i
         derniereMs = debutMs
+        if (i != indexRegle) {
+            indexRegle = i
+            reglages?.nouvelleVideo(liens[i], noms.getOrElse(i) { "" })
+        }
         val media = Media(libVlc, Uri.parse(liens[i]))
+        // Taille et couleur des sous-titres intégrés (dessinés par VLC)
+        reglages?.let {
+            media.addOption(":freetype-rel-fontsize=" + it.vlcTaille())
+            media.addOption(":freetype-color=" + it.vlcCouleur())
+        }
         media.setHWDecoderEnabled(true, false) // décodage par la puce si possible, sinon par le processeur
         if (debutMs > 1000) media.addOption(":start-time=" + (debutMs / 1000))
         lecteur.setMedia(media)
@@ -127,6 +148,63 @@ class LecteurVlc(
         lecteur.play()
         titre?.text = noms.getOrElse(i) { "" }
         montrerBarre()
+    }
+
+    // ---- Pilote : ce que le menu Réglages sait faire avec VLC ----
+
+    private fun nomsPistes(l: Array<MediaPlayer.TrackDescription>?, type: String): List<Piste> {
+        if (l == null) return emptyList()
+        val out = ArrayList<Piste>()
+        var n = 0
+        for (t in l) {
+            if (t.id == -1) continue // « Désactiver »
+            n++
+            val nom = t.name ?: ""
+            val crochets = nom.substringAfter('[', "").substringBefore(']')
+            out.add(Reglages.piste(type + t.id, crochets.ifEmpty { null }, nom, n, true))
+        }
+        return out
+    }
+
+    override fun pistesAudio(): List<Piste> =
+        if (libere) emptyList() else try { nomsPistes(lecteur.audioTracks, "a") } catch (e: Throwable) { emptyList() }
+
+    override fun audioActuel(): String? =
+        if (libere) null else try { "a" + lecteur.audioTrack } catch (e: Throwable) { null }
+
+    override fun choisirAudio(id: String) {
+        if (libere) return
+        val n = id.removePrefix("a").toIntOrNull() ?: return
+        try { lecteur.setAudioTrack(n) } catch (e: Throwable) { }
+    }
+
+    override fun pistesSousTitres(): List<Piste> =
+        if (libere) emptyList() else try { nomsPistes(lecteur.spuTracks, "s") } catch (e: Throwable) { emptyList() }
+
+    override fun choisirSousTitre(id: String?) {
+        if (libere) return
+        val n = if (id == null) -1 else (id.removePrefix("s").toIntOrNull() ?: return)
+        try { lecteur.setSpuTrack(n) } catch (e: Throwable) { }
+    }
+
+    override fun position(): Long = if (libere) 0L else lecteur.time
+
+    override fun vitesse(): Float = if (libere) 1f else try { lecteur.rate } catch (e: Throwable) { 1f }
+
+    override fun changerVitesse(v: Float) {
+        if (libere) return
+        try { lecteur.setRate(v) } catch (e: Throwable) { }
+    }
+
+    /** Taille ou couleur changées : VLC les lit au début de la vidéo, on relance donc au même endroit si des sous-titres intégrés sont affichés. */
+    override fun styleSousTitresChange() {
+        if (libere) return
+        val actif = try { lecteur.spuTrack != -1 } catch (e: Throwable) { false }
+        if (!actif) return
+        val i = index
+        val pos = lecteur.time
+        reglages?.redemarre()
+        jouer(i, pos)
     }
 
     /** Fin de la vidéo (ou erreur) : on passe à la suivante s'il y en a une, sinon on s'arrête. */
