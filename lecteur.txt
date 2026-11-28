@@ -1,0 +1,29 @@
+--------- beginning of main
+11-28 19:55:08.562  2305  2305 I MaisonLecteur: etat=2 position=0 reserve=0
+11-28 19:55:09.801  2305  2305 I MaisonLecteur: sous-titres automatiques : i:g3
+11-28 19:55:10.317  2305  2305 I MaisonLecteur: etat=3 position=0 reserve=59960
+11-28 19:56:13.122  2305  2305 I MaisonLecteur: sous-titres automatiques : none
+11-28 19:56:19.679  2305  2305 I MaisonLecteur: langue automatique : Français
+11-28 19:56:19.679  2305  2305 I MaisonLecteur: sous-titres automatiques : none
+11-28 19:56:44.168  2305  2305 I MaisonLecteur: langue choisie : Anglais
+11-28 19:56:44.184  2305  2305 I MaisonLecteur: sous-titres automatiques : i:s3
+11-28 19:57:01.746  2305  2305 I MaisonLecteur: sous-titres choisis : none
+11-28 19:57:15.412  2305  2305 I MaisonLecteur: sous-titres choisis : i:s3
+11-28 19:57:29.942  2305  2305 I MaisonLecteur: langue automatique : Anglais
+11-28 19:57:34.376  2305  2305 I MaisonLecteur: sous-titres automatiques : none
+11-28 19:58:36.808  2305  2305 I MaisonLecteur: etat=2 position=0 reserve=0
+11-28 19:58:37.866  2305  2305 I MaisonLecteur: langue automatique : Anglais
+11-28 19:58:37.882  2305  2305 I MaisonLecteur: sous-titres automatiques : i:g3
+11-28 19:58:37.884  2305  2305 I MaisonLecteur: etat=3 position=0 reserve=30395
+11-28 19:59:09.015  2305  2305 I MaisonLecteur: sous-titres choisis : i:g4
+11-28 19:59:21.702  2305  2305 I MaisonLecteur: langue choisie : Français
+11-28 19:59:42.662  2305  2305 I MaisonLecteur: etat=2 position=92 reserve=60029
+11-28 19:59:43.508  2305  2305 I MaisonLecteur: sous-titres automatiques : none
+11-28 20:00:00.645  2305  2305 I MaisonLecteur: etat=2 position=0 reserve=0
+11-28 20:00:01.377  2305  2305 I MaisonLecteur: sous-titres en fichier : Français (fichier)
+11-28 20:00:01.377  2305  2305 I MaisonLecteur: sous-titres automatiques : none
+11-28 20:00:01.799  2305  2305 I MaisonLecteur: etat=3 position=0 reserve=57980
+11-28 20:00:38.103  2305  2305 I MaisonLecteur: sous-titres choisis : x:0
+11-28 20:00:57.703  2305  2305 I MaisonLecteur: sous-titres automatiques : none
+11-28 20:01:41.114  2305  2305 I MaisonLecteur: langue choisie : Piste 2
+11-28 20:02:13.769  2305  2305 I MaisonLecteur: sous-titres automatiques : none
