@@ -1,15 +1,14 @@
 {
-  "code": 13,
-  "nom": "1.9.0",
+  "code": 14,
+  "nom": "1.10.0",
   "apk": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison.apk",
   "changements": [
-    "Nouvelle tuile « Réseau » : tout ce qui est branché sur le Wi-Fi de la maison (ordinateurs, Freebox, télés, enceintes, caméras, serveurs, téléphones), chacun avec son voyant connecté ou non connecté.",
-    "Dossiers partagés des PC Windows : on les ouvre, on regarde les films et les photos, on les envoie sur la télé (identifiant Windows demandé une fois).",
-    "Serveurs de vidéos et musique du réseau (Freebox, Jellyfin…) : leur contenu s'ouvre dans l'appli.",
-    "Partager ce téléphone (Réglages) : ses photos, vidéos et musiques deviennent visibles sur les autres appareils de la maison, avec un code.",
-    "Caméras du réseau : image en direct avec leur identifiant.",
-    "Vidéos, Photos et Musique : nouvelle partie « Sur le réseau » avec les autres sources de la maison.",
-    "Sur l'accueil : chaque ordinateur déjà vu sur le Wi-Fi est indiqué allumé ou éteint."
+    "Jeux : nouvelle grande tuile « Jeux des PC » pour jouer ici aux jeux du ROG et du PC fixe (appli gratuite Moonlight).",
+    "Films : appui long sur un film ou un dossier pour indiquer l'âge conseillé (Tous publics, -10, -12, -16, -18), avec une pastille de couleur.",
+    "Lecteur vidéo : bouton « Cadrage » (image normale, remplir l'écran, étirer), retenu pour la suite.",
+    "Photos : tourner à gauche ou à droite (retenu pour chaque photo), agrandir à deux doigts ou d'un double appui, glisser pour passer à la suivante.",
+    "Réglages > Apparence : six thèmes au choix (Nuit d'origine, Océan, Forêt, Prune, Braise, Clair).",
+    "Réglages > Bluetooth : chercher, reconnaître et connecter manettes, casques, enceintes et objets ; les manettes branchées sont affichées."
   ],
   "apk_arm64-v8a": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison-arm64.apk",
   "apk_armeabi-v7a": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison-arm32.apk"

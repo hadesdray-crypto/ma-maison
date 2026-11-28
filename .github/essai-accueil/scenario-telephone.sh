@@ -1,14 +1,17 @@
+# Essai de la 1.10.0 : seulement ce qui a changé (âge des films, cadrage, photos, jeux des PC, apparence, Bluetooth)
 py() { python3 ../.github/essai-accueil/pilote.py "$@"; }
-py cap:01-accueil bas cap:02-accueil-bas haut
-py tapx:Vidéos dormir:3 cap:03-videos bas cap:03b-videos-bas "tap:Films du disque" dormir:2 cap:03c-non-connecte dormir:3 "tap:Films essai" dormir:3 cap:04-liste
-py "tap:▸  Saison 1" dormir:2 cap:05-sous-dossier retour cap:06-retour-liste
-py bas bas bas cap:07-liste-plus-bas "tap:Film 0" dormir:6 cap:08-lecteur retour cap:09-liste-meme-endroit retour retour
-py tapx:Maison cap:10-maison long:Prises cap:11-menu-maison "tap:Mettre sur l'accueil" cap:12-maison-apres retour cap:13-accueil-avec-prises
-py long:Photos cap:14-menu "tap:Taille : Petite" cap:15-photos-petite
-py "long:Smart Life" "tap:Taille : Grande" cap:16-smartlife-grande
-py long:Jeux "tap:Reculer d'une place" cap:17-jeux-recule
-py long:Jeux "tap:Tout remettre comme au départ" cap:18-remis
-py tapx:Photos dormir:3 "tap:Images essai" dormir:3 cap:19-photos "tap:Photo bleue" dormir:4 cap:20-photo retour retour retour
-py tapx:Musique dormir:3 "tap:Musique essai" dormir:3 cap:21-musique retour retour
-py tapx:Jeux cap:22-jeux retour tapx:Lumières dormir:3 cap:23-lumieres retour
-py tapx:Réglages cap:24-reglages retour cap:25-accueil-fin
+py cap:01-accueil
+py tapx:Vidéos dormir:3 "tap:Films essai" dormir:3 cap:02-liste-films "long:Film 001.mp4" cap:03-choix-age "tap:Moins de 12 ans" dormir:1 cap:04-age-12
+py "long:▸  Saison 1" "tap:Tous publics" dormir:1 cap:05-dossier-tous-publics retour
+py "tap:Vidéos essai" dormir:3 "tap:Essai.mp4" dormir:8 cap:06-lecteur
+py "tap:Cadrage" dormir:2 cap:07-cadrage-2 "tap:Cadrage" dormir:2 cap:08-cadrage-3 "tap:Cadrage" dormir:2 cap:09-cadrage-1 retour retour retour
+py tapx:Photos dormir:3 "tap:Images essai" dormir:3 "tap:Photo bleue" dormir:4 cap:10-photo
+py "tap:Tourner à droite" dormir:1 cap:11-photo-tournee "tap:Agrandir" dormir:1 cap:12-photo-agrandie "tap:Agrandir" "tap:Suivante" dormir:3 cap:13-photo-suivante "tap:Précédente" dormir:3 cap:14-photo-rotation-gardee retour retour retour
+py tapx:Jeux dormir:2 cap:15-jeux retour
+py tapx:Réglages dormir:2 cap:16-reglages "tap:Changer le visuel" dormir:2 cap:17-apparence "tap:Océan" dormir:2 cap:18-apparence-ocean retour retour cap:19-accueil-ocean
+py tapx:Réglages dormir:2 "tap:Changer le visuel" dormir:2 "tap:Clair" dormir:2 retour retour cap:20-accueil-clair
+py tapx:Vidéos dormir:3 cap:21-videos-clair retour
+py tapx:Réglages dormir:2 "tap:Chercher et connecter" dormir:3 cap:22-bluetooth "tap:Autoriser" dormir:3 cap:23-bluetooth-autorisation
+adb shell pm grant fr.hadesdray.mamaison android.permission.BLUETOOTH_SCAN; adb shell pm grant fr.hadesdray.mamaison android.permission.BLUETOOTH_CONNECT
+py retour dormir:2 retour "tap:Chercher et connecter" dormir:3 cap:24-bluetooth-autorise "tap:Chercher les appareils" dormir:4 cap:25-bluetooth-recherche retour retour
+py tapx:Réglages dormir:2 "tap:Changer le visuel" dormir:2 "tap:Nuit" dormir:2 retour retour cap:26-accueil-nuit

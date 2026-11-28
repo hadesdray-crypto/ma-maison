@@ -196,11 +196,27 @@ class LecteurVlc(
         return true
     }
 
+    // Cadrage choisi dans le lecteur : 0 = image normale, 1 = remplir l'écran, 2 = étirer
+    private var modeCadrage = 0
+
     /** Branche l'image sur l'écran (au départ et au retour dans l'appli). */
     fun attacher() {
         if (libere || vueAttachee) return
         lecteur.attachViews(image, null, true, false)
         vueAttachee = true
+        cadrage(modeCadrage)
+    }
+
+    fun cadrage(mode: Int) {
+        modeCadrage = mode
+        if (libere) return
+        try {
+            lecteur.setVideoScale(when (mode) {
+                1 -> MediaPlayer.ScaleType.SURFACE_FIT_SCREEN
+                2 -> MediaPlayer.ScaleType.SURFACE_FILL
+                else -> MediaPlayer.ScaleType.SURFACE_BEST_FIT
+            })
+        } catch (e: Throwable) { }
     }
 
     /** L'appli passe en arrière-plan : pause et on débranche l'image. */

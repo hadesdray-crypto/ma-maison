@@ -9,8 +9,13 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.TextView
+import android.widget.Toast
+import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.C
 import com.google.android.exoplayer2.DefaultLoadControl
 import com.google.android.exoplayer2.ExoPlayer
@@ -36,6 +41,13 @@ class LecteurActivity : Activity() {
     private var liens: Array<String> = arrayOf()
     private var noms: Array<String> = arrayOf()
     private var musique = false
+    private var boutonCadrage: Button? = null
+
+    // Cadrage de l'image, retenu : 0 = image normale, 1 = remplir l'écran, 2 = étirer
+    private val nomsCadrage = arrayOf("Image normale", "Remplir l'écran", "Étirer")
+    private var cadrage: Int
+        get() = getSharedPreferences("maison", MODE_PRIVATE).getInt("cadrage", 0).coerceIn(0, 2)
+        set(v) { getSharedPreferences("maison", MODE_PRIVATE).edit().putInt("cadrage", v).apply() }
 
     // Surveillance « son sans image » : vrai dès qu'ExoPlayer a affiché une première image
     private val minuteur = Handler(Looper.getMainLooper())
@@ -67,7 +79,37 @@ class LecteurActivity : Activity() {
         titre.setPadding(40, 40, 40, 40)
         titre.setShadowLayer(6f, 0f, 0f, Color.BLACK)
         cadre.addView(titre, FrameLayout.LayoutParams(-1, -2))
+        if (!musique) {
+            // Bouton « Cadrage » en haut à droite : image normale, remplir l'écran, étirer
+            val bc = Button(this)
+            bc.isAllCaps = false
+            bc.textSize = 14f
+            bc.setTextColor(Color.WHITE)
+            val fond = GradientDrawable()
+            fond.setColor(Color.argb(150, 0, 0, 0))
+            fond.cornerRadius = 18 * resources.displayMetrics.density
+            bc.background = fond
+            val d = resources.displayMetrics.density
+            bc.setPadding((14 * d).toInt(), (6 * d).toInt(), (14 * d).toInt(), (6 * d).toInt())
+            bc.text = "Cadrage : " + nomsCadrage[cadrage]
+            bc.setOnClickListener {
+                cadrage = (cadrage + 1) % 3
+                bc.text = "Cadrage : " + nomsCadrage[cadrage]
+                appliquerCadrage()
+                Toast.makeText(this, nomsCadrage[cadrage], Toast.LENGTH_SHORT).show()
+            }
+            val lpc = FrameLayout.LayoutParams(-2, -2)
+            lpc.gravity = Gravity.TOP or Gravity.END
+            lpc.setMargins(0, (14 * d).toInt(), (14 * d).toInt(), 0)
+            cadre.addView(bc, lpc)
+            boutonCadrage = bc
+            // Avec ExoPlayer, le bouton apparaît et disparaît avec les commandes du lecteur
+            v.setControllerVisibilityListener(StyledPlayerView.ControllerVisibilityListener { vis ->
+                if (vlc == null) bc.visibility = vis
+            })
+        }
         setContentView(cadre)
+        appliquerCadrage()
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
 
         if (liens.isEmpty()) return
@@ -189,7 +231,21 @@ class LecteurActivity : Activity() {
             vue?.let { cadre.removeView(it) }
             vue = null
             vlc = LecteurVlc(this, cadre, liens, noms, i, pos, titre)
+            appliquerCadrage()
+            // Le bouton reste par-dessus l'image de VLC, toujours visible
+            boutonCadrage?.let { it.visibility = View.VISIBLE; cadre.bringChildToFront(it) }
         }
+    }
+
+    /** Applique le cadrage choisi au lecteur en cours (ExoPlayer ou VLC). */
+    private fun appliquerCadrage() {
+        if (musique) return
+        vue?.resizeMode = when (cadrage) {
+            1 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            2 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+            else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+        }
+        vlc?.cadrage(cadrage)
     }
 
     // Télécommande : quand VLC lit, c'est lui qui reçoit OK et les flèches (la flèche retour reste normale)

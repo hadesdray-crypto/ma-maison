@@ -38,7 +38,10 @@ object Tv {
     private fun frame(c: Context): StateListDrawable {
         val d = c.resources.displayMetrics.density
         val on = GradientDrawable().apply {
-            setColor(Color.argb(40, 255, 255, 255)); cornerRadius = 12 * d; setStroke((3 * d).toInt(), Color.WHITE)
+            // Thème clair : cadre foncé (un cadre blanc ne se verrait pas sur fond blanc)
+            val clair = Theme.choisi(c.getSharedPreferences("maison", Context.MODE_PRIVATE)).clair
+            setColor(if (clair) Color.argb(30, 0, 0, 0) else Color.argb(40, 255, 255, 255)); cornerRadius = 12 * d
+            setStroke((3 * d).toInt(), if (clair) Color.parseColor("#1A2030") else Color.WHITE)
         }
         return StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused), on)

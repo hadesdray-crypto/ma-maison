@@ -43,6 +43,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.concurrent.thread
+import kotlin.math.max
 
 /**
  * Ma Maison : une seule appli, en français, pour toute la maison.
@@ -57,14 +58,15 @@ class MainActivity : Activity() {
         const val PETITE = 0
     }
 
-    // Couleurs
-    private val cFond = Color.parseColor("#12161F")
-    private val cCarte = Color.parseColor("#1E2533")
-    private val cCarteHaute = Color.parseColor("#2A3550")
-    private val cCarteActive = Color.parseColor("#3A3220")
-    private val cAccent = Color.parseColor("#F2B544")
-    private val cTexte = Color.parseColor("#F3F5F9")
-    private val cGris = Color.parseColor("#9AA4B5")
+    // Couleurs : celles du thème choisi dans Réglages > Apparence (« Nuit », le visuel d'origine, par défaut)
+    private val th: Theme get() = Theme.choisi(prefs)
+    private val cFond get() = th.fond
+    private val cCarte get() = th.carte
+    private val cCarteHaute get() = th.carteHaute
+    private val cCarteActive get() = th.carteActive
+    private val cAccent get() = th.accent
+    private val cTexte get() = th.texte
+    private val cGris get() = th.gris
     private val cVert = Color.parseColor("#6FCF97")
     private val cRouge = Color.parseColor("#EB5757")
 
@@ -104,8 +106,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
-        window.statusBarColor = cFond
-        window.navigationBarColor = cFond
+        appliquerBarres()
         passerelle = Passerelle(this)
         moteur = Moteur(this)
         smartLife = SmartLife(this)
@@ -133,6 +134,7 @@ class MainActivity : Activity() {
 
     private fun ouvrir(nom: String, ecran: () -> Unit, racine: Boolean = false) {
         arreterMinuteur()
+        if (recepteurBt != null) arreterRechercheBt()
         dyson.arreterReception()
         if (racine) pile.clear()
         pile.add(ecran)
@@ -145,6 +147,7 @@ class MainActivity : Activity() {
     @Deprecated("Flèche retour d'Android")
     override fun onBackPressed() {
         arreterMinuteur()
+        if (recepteurBt != null) arreterRechercheBt()
         dyson.arreterReception()
         if (pile.size > 1) {
             pile.removeAt(pile.size - 1)
@@ -184,6 +187,22 @@ class MainActivity : Activity() {
         relancer = false
         if (prefs.getBoolean("allume", false) && modeTablette) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    /** Barres du haut et du bas aux couleurs du thème (icônes foncées sur le thème clair). */
+    private fun appliquerBarres() {
+        window.statusBarColor = cFond
+        window.navigationBarColor = cFond
+        if (Build.VERSION.SDK_INT >= 23) {
+            @Suppress("DEPRECATION")
+            var f = window.decorView.systemUiVisibility and (View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR).inv()
+            if (th.clair) {
+                f = f or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                if (Build.VERSION.SDK_INT >= 26) f = f or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+            }
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = f
+        }
     }
 
     private fun demanderAccesUneFois() {
@@ -299,7 +318,7 @@ class MainActivity : Activity() {
         b.text = t
         b.isAllCaps = false
         b.textSize = taille(16f)
-        b.setTextColor(Color.parseColor("#1A1A1A"))
+        b.setTextColor(th.texteBouton)
         b.background = rond(cAccent, dp(14))
         b.setPadding(dp(16), dp(12), dp(16), dp(12))
         b.setOnClickListener { action() }
@@ -1105,6 +1124,36 @@ class MainActivity : Activity() {
         }
     }
 
+    // ---------- âge conseillé des films (pour que les enfants sachent si un film fait peur) ----------
+
+    /** Codes d'âge : texte affiché et couleur de la pastille (classement français : tous publics, -10, -12, -16, -18). */
+    private val ages = listOf(
+        Triple("tous", "Tous publics", "#3FBF6F"),
+        Triple("10", "Moins de 10 ans : déconseillé", "#3FA7E0"),
+        Triple("12", "Moins de 12 ans : déconseillé", "#E8C23A"),
+        Triple("16", "Moins de 16 ans : interdit", "#F08A30"),
+        Triple("18", "Moins de 18 ans : interdit", "#EB5757")
+    )
+
+    private fun ageDe(nom: String): Triple<String, String, String>? {
+        val code = prefs.getString("age_$nom", null) ?: return null
+        return ages.firstOrNull { it.first == code }
+    }
+
+    private fun choisirAge(nom: String, ensuite: () -> Unit) {
+        val choix = ages.map { it.second }.toMutableList()
+        choix.add("Enlever l'indication")
+        AlertDialog.Builder(this)
+            .setTitle("Âge conseillé pour « $nom »")
+            .setItems(choix.toTypedArray()) { _, w ->
+                if (w < ages.size) prefs.edit().putString("age_$nom", ages[w].first).apply()
+                else prefs.edit().remove("age_$nom").apply()
+                ensuite()
+            }
+            .setNegativeButton("Annuler", null)
+            .show()
+    }
+
     /** Contenu d'un dossier : deux boutons fixes en haut, puis une liste qui ne fabrique que les lignes visibles. */
     private fun remplirDossier(c: LinearLayout, type: String, cle: String, t: String, fabriqueLien: (String) -> String, sous: (String, String) -> Unit) {
         val o = try { JSONObject(t) } catch (e: Exception) { JSONObject() }
@@ -1133,6 +1182,8 @@ class MainActivity : Activity() {
             c.addView(haut, LinearLayout.LayoutParams(-1, -2))
         }
 
+        if (type == "videos") texte(c, "Appui long sur un film ou un dossier : indiquer l'âge conseillé (pastille de couleur).", 12f)
+
         val liste = ListView(this)
         liste.divider = null
         liste.dividerHeight = 0
@@ -1143,8 +1194,8 @@ class MainActivity : Activity() {
         // Ligne choisie : voile clair ; sur la télé, cadre blanc bien visible
         val choisi = GradientDrawable()
         choisi.cornerRadius = dp(12).toFloat()
-        choisi.setColor(Color.argb(40, 255, 255, 255))
-        if (Tv.isTv(this)) choisi.setStroke(dp(3), Color.WHITE)
+        choisi.setColor(if (th.clair) Color.argb(30, 0, 0, 0) else Color.argb(40, 255, 255, 255))
+        if (Tv.isTv(this)) choisi.setStroke(dp(3), if (th.clair) cTexte else Color.WHITE)
         liste.selector = choisi
         // Télé : le cadre de la liste n'apparaît que quand la télécommande est dans la liste (jamais deux cadres à la fois)
         if (Tv.isTv(this)) {
@@ -1178,16 +1229,21 @@ class MainActivity : Activity() {
                 val carte = vue.getChildAt(0) as LinearLayout
                 val a = carte.getChildAt(0) as TextView
                 val b = carte.getChildAt(1) as TextView
+                val nomLigne = if (i < nd) nomsDossiers[i] else noms[i - nd]
+                val age = if (type == "videos") ageDe(nomLigne) else null
+                val infos = ArrayList<String>()
+                if (age != null) infos.add("●  " + age.second)
                 if (i < nd) {
                     a.text = "▸  " + nomsDossiers[i]
-                    b.text = "Dossier"
-                    b.visibility = View.VISIBLE
+                    infos.add("Dossier")
                 } else {
                     val f = i - nd
                     a.text = noms[f]
-                    b.text = if (poids[f] > 0) "${poids[f]} Mo" else ""
-                    b.visibility = if (poids[f] > 0) View.VISIBLE else View.GONE
+                    if (poids[f] > 0) infos.add("${poids[f]} Mo")
                 }
+                b.text = infos.joinToString("   ·   ")
+                b.setTextColor(if (age != null) Color.parseColor(age.third) else cGris)
+                b.visibility = if (infos.isEmpty()) View.GONE else View.VISIBLE
                 return vue
             }
         }
@@ -1197,6 +1253,10 @@ class MainActivity : Activity() {
                 val f = i - nd
                 if (type == "photos") ouvrir("Photo", { photo(liens, noms, f) }) else lire(liens, noms, f, type == "musique")
             }
+        }
+        if (type == "videos") liste.setOnItemLongClickListener { _, _, i, _ ->
+            choisirAge(if (i < nd) nomsDossiers[i] else noms[i - nd]) { (liste.adapter as BaseAdapter).notifyDataSetChanged() }
+            true
         }
         // On retrouve la liste là où on l'avait laissée
         positions[cle]?.let { liste.setSelectionFromTop(it[0], it[1]) }
@@ -1247,8 +1307,7 @@ class MainActivity : Activity() {
         var index = depart
         val racine = FrameLayout(this)
         racine.setBackgroundColor(Color.BLACK)
-        val image = ImageView(this)
-        image.scaleType = ImageView.ScaleType.FIT_CENTER
+        val image = VuePhoto(this)
         racine.addView(image, FrameLayout.LayoutParams(-1, -1))
         val nom = TextView(this)
         nom.setTextColor(Color.WHITE)
@@ -1257,31 +1316,59 @@ class MainActivity : Activity() {
         nom.setPadding(dp(16), dp(16), dp(16), dp(16))
         racine.addView(nom, FrameLayout.LayoutParams(-1, -2))
         val bas = LinearLayout(this)
-        bas.orientation = LinearLayout.HORIZONTAL
-        bas.setPadding(dp(12), dp(12), dp(12), dp(20))
-        val prec = Button(this)
-        prec.text = "‹ Précédente"
-        prec.isAllCaps = false
-        val suiv = Button(this)
-        suiv.text = "Suivante ›"
-        suiv.isAllCaps = false
-        val tele = Button(this)
-        tele.text = "Sur la télé"
-        tele.isAllCaps = false
-        tele.setOnClickListener { diffusion.envoyer(liens, noms, index, "photos") }
-        bas.addView(prec, LinearLayout.LayoutParams(0, -2, 1f))
-        bas.addView(tele, LinearLayout.LayoutParams(0, -2, 1f))
-        bas.addView(suiv, LinearLayout.LayoutParams(0, -2, 1f))
+        bas.orientation = LinearLayout.VERTICAL
+        bas.setPadding(dp(12), dp(8), dp(12), dp(16))
+        fun rangee(): LinearLayout {
+            val r = LinearLayout(this)
+            r.orientation = LinearLayout.HORIZONTAL
+            bas.addView(r, LinearLayout.LayoutParams(-1, -2))
+            return r
+        }
+        fun btn(r: LinearLayout, t: String, action: () -> Unit): Button {
+            val b = Button(this)
+            b.text = t
+            b.isAllCaps = false
+            b.textSize = 14f
+            b.setTextColor(Color.WHITE)
+            b.background = rond(Color.argb(170, 40, 44, 52), dp(12))
+            b.setOnClickListener { action() }
+            val lp = LinearLayout.LayoutParams(0, -2, 1f)
+            lp.setMargins(dp(4), dp(4), dp(4), dp(4))
+            r.addView(b, lp)
+            return b
+        }
+        // La rotation choisie est retenue pour chaque photo (par son nom)
+        fun cleRotation() = "rotation_" + noms[index]
+        val r1 = rangee()
+        btn(r1, "Tourner à gauche") { prefs.edit().putInt(cleRotation(), image.tourner(-1)).apply() }
+        btn(r1, "Agrandir") { image.basculerZoom() }
+        btn(r1, "Tourner à droite") { prefs.edit().putInt(cleRotation(), image.tourner(1)).apply() }
+        val r2 = rangee()
+        val prec = btn(r2, "‹ Précédente") { }
+        btn(r2, "Sur la télé") { diffusion.envoyer(liens, noms, index, "photos") }
+        val suiv = btn(r2, "Suivante ›") { }
         val lpb = FrameLayout.LayoutParams(-1, -2)
         lpb.gravity = Gravity.BOTTOM
         racine.addView(bas, lpb)
+        val aide = TextView(this)
+        aide.text = "Deux doigts ou double appui : agrandir. Glisser : photo suivante. Un appui : cacher les boutons."
+        aide.setTextColor(Color.argb(200, 255, 255, 255))
+        aide.textSize = 12f
+        aide.setShadowLayer(6f, 0f, 0f, Color.BLACK)
+        aide.setPadding(dp(16), 0, dp(16), 0)
+        bas.addView(aide, 0)
         val roue = ProgressBar(this)
         val lpr = FrameLayout.LayoutParams(dp(48), dp(48))
         lpr.gravity = Gravity.CENTER
         racine.addView(roue, lpr)
         setContentView(racine)
+        image.appuiSimple = {
+            val v = if (bas.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            bas.visibility = v
+            nom.visibility = v
+        }
 
-        val largeur = resources.displayMetrics.widthPixels
+        val largeur = max(resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels)
         fun charger() {
             nom.text = "${noms[index]}   (${index + 1}/${noms.size})"
             roue.visibility = View.VISIBLE
@@ -1293,8 +1380,9 @@ class MainActivity : Activity() {
                         val opt = BitmapFactory.Options()
                         opt.inJustDecodeBounds = true
                         BitmapFactory.decodeByteArray(o, 0, o.size, opt)
+                        // Assez de détails pour agrandir, sans dépasser la mémoire
                         var ech = 1
-                        while (opt.outWidth / (ech * 2) >= largeur && opt.outHeight / (ech * 2) >= largeur / 2) ech *= 2
+                        while (opt.outWidth / ech > largeur * 3 / 2 || opt.outHeight / ech > largeur * 3 / 2) ech *= 2
                         val o2 = BitmapFactory.Options()
                         o2.inSampleSize = ech
                         BitmapFactory.decodeByteArray(o, 0, o.size, o2)
@@ -1304,12 +1392,16 @@ class MainActivity : Activity() {
                     if (demande != index || isFinishing) return@post
                     roue.visibility = View.GONE
                     if (bmp == null) message("Cette image ne peut pas s'afficher.")
-                    image.setImageBitmap(bmp)
+                    image.montrer(bmp, prefs.getInt(cleRotation(), 0))
                 }
             }
         }
-        prec.setOnClickListener { if (index > 0) { index--; charger() } }
-        suiv.setOnClickListener { if (index < liens.size - 1) { index++; charger() } }
+        val avant = { if (index > 0) { index--; charger() } else message("C'est la première photo.") }
+        val apres = { if (index < liens.size - 1) { index++; charger() } else message("C'est la dernière photo.") }
+        prec.setOnClickListener { avant() }
+        suiv.setOnClickListener { apres() }
+        image.precedente = avant
+        image.suivante = apres
         charger()
     }
 
@@ -1354,10 +1446,12 @@ class MainActivity : Activity() {
     private fun ouvrirAppli(paquet: String, nom: String) {
         val i = packageManager.getLaunchIntentForPackage(paquet)
         if (i != null) { startActivity(i); return }
+        // 1) le magasin d'applis, 2) sa page dans le navigateur
         try {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$paquet")))
         } catch (e: Exception) {
-            message("L'appli $nom n'est pas installée sur cet appareil.")
+            try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$paquet"))) }
+            catch (e2: Exception) { message("L'appli $nom n'est pas installée sur cet appareil.") }
         }
     }
 
@@ -1468,6 +1562,14 @@ class MainActivity : Activity() {
 
     private fun jeux() {
         val c = page("Jeux", "Tes jeux en streaming : tes comptes et tes parties restent chez chaque service, sur toutes les tablettes.")
+        // Jeux installés sur tes PC (ROG, PC fixe), joués à distance par l'appli gratuite Moonlight
+        val moonlight = packageManager.getLaunchIntentForPackage("com.limelight") != null
+        val pcs = ArrayList<View>()
+        pcs.add(tuile("Jeux des PC", if (moonlight) "Tes jeux du ROG et du PC fixe, ici — par l'appli Moonlight" else "Installer l'appli gratuite Moonlight (une fois)", format = GRANDE, voyant = if (moonlight) 1 else 0) {
+            if (moonlight) ouvrirJeu("Moonlight", "com.limelight", "") else ouvrirAppli("com.limelight", "Moonlight")
+        })
+        rangees(c, pcs, 1)
+        texte(c, if (moonlight) "Le PC doit être allumé. La première fois, Moonlight affiche un code à 4 chiffres à valider sur le PC." else "Il faudra aussi le programme gratuit Sunshine sur chaque PC : à installer quand ton PC sera relié à Claude.", 12f)
         val tuiles = ArrayList<View>()
         for ((nom, paquet, web) in servicesJeux) {
             val installee = packageManager.getLaunchIntentForPackage(paquet) != null
@@ -2040,6 +2142,11 @@ class MainActivity : Activity() {
 
     private fun reglages() {
         val c = page("Réglages")
+        texte(c, "Apparence", 18f, cAccent)
+        texte(c, "Thème actuel : " + th.nom, 15f, cTexte)
+        bouton(c, "Changer le visuel de Ma Maison") { ouvrir("Apparence", { apparence() }) }
+        texte(c, "Manettes et appareils Bluetooth", 18f, cAccent)
+        bouton(c, "Chercher et connecter une manette ou un appareil") { ouvrir("Bluetooth", { ecranBluetooth() }) }
         texte(c, "Affichage", 18f, cAccent)
         bouton(c, if (modeTablette) "Mode tablette : activé (toucher pour le désactiver)" else "Mode tablette : désactivé (toucher pour l'activer)") {
             prefs.edit().putBoolean("tablette", !modeTablette).apply()
@@ -2081,6 +2188,217 @@ class MainActivity : Activity() {
         val version = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { "?" }
         texte(c, "Version $version", 15f, cTexte)
         bouton(c, "Vérifier les mises à jour") { miseAJour.verifier(true) }
+    }
+
+    /** Choix du thème : appliqué tout de suite à toute l'appli, et retenu. */
+    private fun apparence() {
+        val c = page("Apparence", "Touche un thème : toute l'appli change tout de suite. « Nuit » est le visuel d'origine.")
+        val tuiles = Theme.tous.map { t ->
+            val actif = t.id == th.id
+            val v = LinearLayout(this)
+            v.orientation = LinearLayout.VERTICAL
+            val fond = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(t.carteHaute, t.carte))
+            fond.cornerRadius = dp(18).toFloat()
+            fond.setStroke(dp(if (actif) 3 else 1), if (actif) t.accent else t.fond)
+            v.background = fond
+            v.setPadding(dp(16), dp(14), dp(16), dp(14))
+            v.minimumHeight = dp(if (modeTablette) 130 else 104)
+            val trait = View(this)
+            trait.background = rond(t.accent, dp(2))
+            val lpt = LinearLayout.LayoutParams(dp(30), dp(4))
+            lpt.setMargins(0, 0, 0, dp(10))
+            v.addView(trait, lpt)
+            val a = TextView(this)
+            a.text = if (actif) t.nom + "  (choisi)" else t.nom
+            a.setTextColor(t.texte)
+            a.textSize = taille(18f)
+            a.setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            v.addView(a)
+            val b = TextView(this)
+            b.text = t.description
+            b.setTextColor(t.gris)
+            b.textSize = taille(13f)
+            b.setPadding(0, dp(4), 0, 0)
+            v.addView(b)
+            v.isClickable = true
+            v.contentDescription = "Thème " + t.nom
+            v.setOnClickListener {
+                prefs.edit().putString("theme", t.id).apply()
+                appliquerBarres()
+                rafraichir()
+                message("Thème « ${t.nom} » appliqué.")
+            }
+            effetAppui(v)
+            v
+        }
+        grille(c, tuiles)
+    }
+
+    // ---------- manettes et appareils Bluetooth ----------
+
+    private var recepteurBt: android.content.BroadcastReceiver? = null
+    private val trouvesBt = LinkedHashMap<String, android.bluetooth.BluetoothDevice>()
+
+    private fun permissionsBt(): Array<String> = if (Build.VERSION.SDK_INT >= 31)
+        arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+    else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+
+    private fun btAutorise(): Boolean = Build.VERSION.SDK_INT < 23 ||
+        permissionsBt().all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
+
+    private fun arreterRechercheBt() {
+        recepteurBt?.let { try { unregisterReceiver(it) } catch (e: Exception) { } }
+        recepteurBt = null
+        try { adaptateurBt()?.cancelDiscovery() } catch (e: SecurityException) { }
+    }
+
+    private fun adaptateurBt(): android.bluetooth.BluetoothAdapter? = try {
+        (getSystemService(Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager)?.adapter
+    } catch (e: Throwable) { null }
+
+    /** Manettes reconnues par Android en ce moment (Bluetooth ou câble). */
+    private fun manettesBranchees(): List<String> {
+        val l = ArrayList<String>()
+        for (id in android.view.InputDevice.getDeviceIds()) {
+            val d = android.view.InputDevice.getDevice(id) ?: continue
+            val s = d.sources
+            if ((s and android.view.InputDevice.SOURCE_GAMEPAD) == android.view.InputDevice.SOURCE_GAMEPAD ||
+                (s and android.view.InputDevice.SOURCE_JOYSTICK) == android.view.InputDevice.SOURCE_JOYSTICK) {
+                if (!l.contains(d.name)) l.add(d.name)
+            }
+        }
+        return l
+    }
+
+    private fun estConnecte(d: android.bluetooth.BluetoothDevice): Boolean = try {
+        d.javaClass.getMethod("isConnected").invoke(d) as Boolean
+    } catch (e: Throwable) { false }
+
+    private fun genreBt(d: android.bluetooth.BluetoothDevice): String = try {
+        when (d.bluetoothClass?.majorDeviceClass) {
+            android.bluetooth.BluetoothClass.Device.Major.PERIPHERAL -> "Manette, clavier ou souris"
+            android.bluetooth.BluetoothClass.Device.Major.AUDIO_VIDEO -> "Casque ou enceinte"
+            android.bluetooth.BluetoothClass.Device.Major.PHONE -> "Téléphone"
+            android.bluetooth.BluetoothClass.Device.Major.COMPUTER -> "Ordinateur"
+            android.bluetooth.BluetoothClass.Device.Major.WEARABLE -> "Montre ou bracelet"
+            android.bluetooth.BluetoothClass.Device.Major.TOY -> "Jouet"
+            android.bluetooth.BluetoothClass.Device.Major.HEALTH -> "Appareil de santé"
+            else -> "Appareil"
+        }
+    } catch (e: SecurityException) { "Appareil" }
+
+    private fun nomBt(d: android.bluetooth.BluetoothDevice): String = try { d.name ?: d.address } catch (e: SecurityException) { d.address }
+
+    private fun ouvrirReglagesBt() {
+        try { startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)) }
+        catch (e: Exception) { message("Les réglages Bluetooth d'Android ne s'ouvrent pas sur cet appareil.") }
+    }
+
+    private fun ecranBluetooth() {
+        val c = page("Bluetooth", "Manettes, casques, enceintes, objets : chercher, reconnaître et connecter. Les objets du Wi-Fi sont dans la tuile Réseau.")
+        val bt = adaptateurBt()
+        val manettes = manettesBranchees()
+        texte(c, "Manettes reconnues maintenant", 18f, cAccent)
+        if (manettes.isEmpty()) texte(c, "Aucune manette branchée pour l'instant. Allume la manette en mode association (souvent un bouton à maintenir jusqu'à ce que la lumière clignote vite), puis touche « Chercher ».")
+        else {
+            texte(c, "Prêtes pour les jeux :", 15f, cTexte)
+            grille(c, manettes.map { tuile(it, "Manette reconnue", voyant = 1) { message("$it est connectée et prête.") } })
+        }
+        if (bt == null) {
+            texte(c, "Cet appareil n'a pas de Bluetooth.", 15f, cTexte)
+            return
+        }
+        if (!btAutorise()) {
+            texte(c, "Ma Maison a besoin de l'accès « Appareils à proximité » pour chercher les appareils Bluetooth.", 15f, cTexte)
+            bouton(c, "Autoriser") { if (Build.VERSION.SDK_INT >= 23) requestPermissions(permissionsBt(), 88) }
+            bouton(c, "Ouvrir les réglages Bluetooth d'Android") { ouvrirReglagesBt() }
+            return
+        }
+        val actif = try { bt.isEnabled } catch (e: SecurityException) { false }
+        if (!actif) {
+            texte(c, "Le Bluetooth est éteint.", 15f, cTexte)
+            bouton(c, "Allumer le Bluetooth") {
+                try { startActivity(Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE)) }
+                catch (e: Exception) { ouvrirReglagesBt() }
+            }
+            return
+        }
+        // Appareils déjà associés
+        val associes = try { bt.bondedDevices?.toList() ?: emptyList() } catch (e: SecurityException) { emptyList() }
+        texte(c, "Déjà associés à cet appareil", 18f, cAccent)
+        if (associes.isEmpty()) texte(c, "Aucun pour l'instant.")
+        else grille(c, associes.map { d ->
+            val co = estConnecte(d)
+            tuile(nomBt(d), genreBt(d) + (if (co) " — connecté" else " — non connecté"), voyant = if (co) 1 else 0) {
+                if (co) message("${nomBt(d)} est déjà connecté.")
+                else {
+                    message("Rallume ${nomBt(d)} : il se reconnecte tout seul. Sinon, ouvre les réglages Bluetooth d'Android.")
+                }
+            }
+        })
+        // Recherche des appareils autour
+        texte(c, "Appareils trouvés autour", 18f, cAccent)
+        val zone = LinearLayout(this)
+        zone.orientation = LinearLayout.VERTICAL
+        c.addView(zone)
+        fun montrerTrouves(enCours: Boolean) {
+            zone.removeAllViews()
+            val nouveaux = trouvesBt.values.filter { d -> associes.none { it.address == d.address } }
+            if (nouveaux.isEmpty()) texte(zone, if (enCours) "Recherche en cours… (environ 12 secondes)" else "Rien de nouveau trouvé. Mets l'appareil en mode association puis relance la recherche.")
+            else grille(zone, nouveaux.map { d ->
+                tuile(nomBt(d), genreBt(d) + " — toucher pour connecter", voyant = -1) {
+                    try {
+                        bt.cancelDiscovery()
+                        if (d.createBond()) message("Connexion à ${nomBt(d)}… valide si Android le demande.")
+                        else message("${nomBt(d)} refuse la connexion. Remets-le en mode association.")
+                    } catch (e: SecurityException) { message("Accès Bluetooth refusé.") }
+                }
+            })
+        }
+        trouvesBt.clear()
+        montrerTrouves(false)
+        bouton(c, "Chercher les appareils autour") {
+            arreterRechercheBt()
+            trouvesBt.clear()
+            val r = object : android.content.BroadcastReceiver() {
+                override fun onReceive(ctx: Context, i: Intent) {
+                    when (i.action) {
+                        android.bluetooth.BluetoothDevice.ACTION_FOUND -> {
+                            @Suppress("DEPRECATION")
+                            val d = i.getParcelableExtra<android.bluetooth.BluetoothDevice>(android.bluetooth.BluetoothDevice.EXTRA_DEVICE) ?: return
+                            trouvesBt[d.address] = d
+                            montrerTrouves(true)
+                        }
+                        android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> { montrerTrouves(false); arreterRechercheBt() }
+                        android.bluetooth.BluetoothDevice.ACTION_BOND_STATE_CHANGED -> {
+                            @Suppress("DEPRECATION")
+                            val d = i.getParcelableExtra<android.bluetooth.BluetoothDevice>(android.bluetooth.BluetoothDevice.EXTRA_DEVICE) ?: return
+                            if (d.bondState == android.bluetooth.BluetoothDevice.BOND_BONDED) { message("${nomBt(d)} est connecté."); rafraichir() }
+                        }
+                    }
+                }
+            }
+            val f = android.content.IntentFilter()
+            f.addAction(android.bluetooth.BluetoothDevice.ACTION_FOUND)
+            f.addAction(android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+            f.addAction(android.bluetooth.BluetoothDevice.ACTION_BOND_STATE_CHANGED)
+            if (Build.VERSION.SDK_INT >= 33) registerReceiver(r, f, Context.RECEIVER_EXPORTED) else registerReceiver(r, f)
+            recepteurBt = r
+            val ok = try { bt.startDiscovery() } catch (e: SecurityException) { false }
+            if (ok) montrerTrouves(true) else { message("La recherche n'a pas pu démarrer : ouverture des réglages Bluetooth d'Android."); arreterRechercheBt(); ouvrirReglagesBt() }
+        }
+        bouton(c, "Ouvrir les réglages Bluetooth d'Android") { ouvrirReglagesBt() }
+        texte(c, "Une fois connectée, la manette sert dans les jeux et pour se déplacer dans Ma Maison.", 12f)
+    }
+
+    override fun onRequestPermissionsResult(code: Int, permissions: Array<out String>, resultats: IntArray) {
+        super.onRequestPermissionsResult(code, permissions, resultats)
+        if (code == 88) rafraichir()
+    }
+
+    override fun onDestroy() {
+        arreterRechercheBt()
+        super.onDestroy()
     }
 
     private fun saisir(titre: String, valeur: String, ok: (String) -> Unit) {
