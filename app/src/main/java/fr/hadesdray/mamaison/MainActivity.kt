@@ -67,8 +67,9 @@ class MainActivity : Activity() {
     private val cAccent get() = th.accent
     private val cTexte get() = th.texte
     private val cGris get() = th.gris
-    private val cVert = Color.parseColor("#6FCF97")
-    private val cRouge = Color.parseColor("#EB5757")
+    // Vert et rouge plus foncés sur le thème clair, pour rester lisibles sur fond blanc
+    private val cVert get() = if (th.clair) Color.parseColor("#1E8E4E") else Color.parseColor("#6FCF97")
+    private val cRouge get() = if (th.clair) Color.parseColor("#C62828") else Color.parseColor("#EB5757")
 
     private val ui = Handler(Looper.getMainLooper())
     private val pile = ArrayList<() -> Unit>()
@@ -1328,7 +1329,9 @@ class MainActivity : Activity() {
             val b = Button(this)
             b.text = t
             b.isAllCaps = false
-            b.textSize = 14f
+            b.textSize = 13f
+            b.maxLines = 1
+            b.setPadding(dp(2), dp(10), dp(2), dp(10))
             b.setTextColor(Color.WHITE)
             b.background = rond(Color.argb(170, 40, 44, 52), dp(12))
             b.setOnClickListener { action() }
