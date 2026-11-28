@@ -41,6 +41,7 @@ jobs:
 
   essai:
     needs: fabrication
+    if: ${{ !contains(github.event.head_commit.message, '[publier-seul]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -107,12 +108,14 @@ jobs:
           git add -A && git commit -qm "Essai accueil ${{ matrix.nom }}" && git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" resultat-accueil-${{ matrix.nom }}
 
   publication:
-    needs: essai
-    if: contains(github.event.head_commit.message, '[publier]')
+    needs: [fabrication, essai]
+    if: ${{ always() && needs.fabrication.result == 'success' && (needs.essai.result == 'success' || needs.essai.result == 'skipped') && (contains(github.event.head_commit.message, '[publier]') || contains(github.event.head_commit.message, '[publier-seul]')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           name: fabrication
