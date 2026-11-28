@@ -1,5 +1,6 @@
 py() { python3 ../.github/essai-accueil/pilote.py "$@"; }
-py retour dormir:3
+py retour dormir:2
+adb shell am start -n fr.hadesdray.mamaison/.MainActivity; sleep 10
 py cap:01-accueil focus
 py aller:Vidéos cap:02-videos-choisie touche:23 dormir:4 cap:03-videos focus
 py "aller:Films essai" touche:23 dormir:4 cap:04-liste focus
