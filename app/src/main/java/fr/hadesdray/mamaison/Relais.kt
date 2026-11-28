@@ -218,7 +218,7 @@ object Relais {
             app.contentResolver.query(collection(type), colonnes, null, null, MediaStore.MediaColumns.DATE_ADDED + " DESC")?.use { k ->
                 while (k.moveToNext()) {
                     l.put(JSONObject().put("id", k.getLong(0)).put("nom", k.getString(1) ?: "").put("taille", k.getLong(2))
-                        .put("dossier", (if (type == "musique") null else k.getString(3)) ?: "Musique"))
+                        .put("dossier", if (type == "musique") "Musique" else (k.getString(3) ?: "Autres")))
                 }
             }
         } catch (e: SecurityException) {

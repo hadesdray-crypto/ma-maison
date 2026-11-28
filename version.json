@@ -1,14 +1,15 @@
 {
-  "code": 12,
-  "nom": "1.8.1",
+  "code": 13,
+  "nom": "1.9.0",
   "apk": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison.apk",
   "changements": [
-    "Vidéos, Photos et Musique rangées par disque : chaque disque du PC s'affiche avec son nom et un voyant vert « connecté » ou rouge « non connecté ».",
-    "Un disque débranché ou en veille ne disparaît plus : il reste affiché, grisé, avec la raison. « Vérifier de nouveau » relance la recherche.",
-    "Chaque disque (sauf celui de Windows) peut s'ouvrir en entier avec « Tout le disque ».",
-    "Voyants sur les tuiles de l'accueil : PC de la maison, appareils, caméras, Dyson.",
-    "Enceintes : la liste indique « son seulement » ; une vidéo ou une photo envoyée sur une enceinte est expliquée au lieu d'échouer.",
-    "En cas de refus d'une enceinte ou d'une télé, le motif exact s'affiche."
+    "Nouvelle tuile « Réseau » : tout ce qui est branché sur le Wi-Fi de la maison (ordinateurs, Freebox, télés, enceintes, caméras, serveurs, téléphones), chacun avec son voyant connecté ou non connecté.",
+    "Dossiers partagés des PC Windows : on les ouvre, on regarde les films et les photos, on les envoie sur la télé (identifiant Windows demandé une fois).",
+    "Serveurs de vidéos et musique du réseau (Freebox, Jellyfin…) : leur contenu s'ouvre dans l'appli.",
+    "Partager ce téléphone (Réglages) : ses photos, vidéos et musiques deviennent visibles sur les autres appareils de la maison, avec un code.",
+    "Caméras du réseau : image en direct avec leur identifiant.",
+    "Vidéos, Photos et Musique : nouvelle partie « Sur le réseau » avec les autres sources de la maison.",
+    "Sur l'accueil : chaque ordinateur déjà vu sur le Wi-Fi est indiqué allumé ou éteint."
   ],
   "apk_arm64-v8a": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison-arm64.apk",
   "apk_armeabi-v7a": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison-arm32.apk"
