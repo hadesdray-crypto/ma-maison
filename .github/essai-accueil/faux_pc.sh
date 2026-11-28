@@ -19,7 +19,8 @@ png("/tmp/pc/photos/Photo rouge.png", (200, 40, 40)); png("/tmp/pc/photos/Photo 
 PY
 for n in 1 2 3 4 5; do : > "$P/musique/Chanson $n.mp3"; done
 cat > "$2/reglages.json" <<J
-{"videos":[{"nom":"Films essai","chemin":"$P/films"},{"nom":"Vidéos","chemin":"$P/videos"}],
+{"disques_connus":[{"lettre":"Z:","nom":"EMTEC · 1 To"}],
+ "videos":[{"nom":"Films essai","chemin":"$P/films"},{"nom":"Vidéos","chemin":"$P/videos"},{"nom":"Films du disque externe","chemin":"Z:\\films"}],
  "photos":[{"nom":"Images essai","chemin":"$P/photos"}],
  "musique":[{"nom":"Musique essai","chemin":"$P/musique"}]}
 J

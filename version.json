@@ -1,14 +1,14 @@
 {
-  "code": 11,
-  "nom": "1.8.0",
+  "code": 12,
+  "nom": "1.8.1",
   "apk": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison.apk",
   "changements": [
-    "Nouvel accueil : des tuiles de trois tailles. Les grandes en haut (Vidéos, Jeux, Musique, Photos), les moyennes au milieu, les petites en bas.",
-    "Tu choisis toi-même : appui long sur une tuile pour changer sa taille, la déplacer, ou tout remettre comme au départ.",
-    "Nouvelle tuile « Maison » : prises, volets, capteurs, consommation, ambiances et plannings y sont rangés. Tu peux en remettre sur l'accueil par appui long.",
-    "Dossiers de films, musiques et photos beaucoup plus rapides : la liste s'ouvre tout de suite, même avec des centaines de fichiers.",
-    "Un dossier déjà ouvert se réaffiche instantanément, et la liste revient là où tu l'avais laissée.",
-    "Passage en douceur d'une page à l'autre, et chaque tuile réagit sous le doigt."
+    "Vidéos, Photos et Musique rangées par disque : chaque disque du PC s'affiche avec son nom et un voyant vert « connecté » ou rouge « non connecté ».",
+    "Un disque débranché ou en veille ne disparaît plus : il reste affiché, grisé, avec la raison. « Vérifier de nouveau » relance la recherche.",
+    "Chaque disque (sauf celui de Windows) peut s'ouvrir en entier avec « Tout le disque ».",
+    "Voyants sur les tuiles de l'accueil : PC de la maison, appareils, caméras, Dyson.",
+    "Enceintes : la liste indique « son seulement » ; une vidéo ou une photo envoyée sur une enceinte est expliquée au lieu d'échouer.",
+    "En cas de refus d'une enceinte ou d'une télé, le motif exact s'affiche."
   ],
   "apk_arm64-v8a": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison-arm64.apk",
   "apk_armeabi-v7a": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison-arm32.apk"

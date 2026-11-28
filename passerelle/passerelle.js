@@ -6,8 +6,9 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { execFile } = require('child_process');
 
-const VERSION = 2;
+const VERSION = 3;
 const PORT = 8790;
 const DOSSIER = __dirname;
 const FICHIER_REGLAGES = path.join(DOSSIER, 'reglages.json');
@@ -26,9 +27,11 @@ const REGLAGES_DEFAUT = {
     { nom: 'Films 2022', chemin: 'D:\\filmes 2022' },
     { nom: 'Films 2023', chemin: 'D:\\filmes 2023' },
     { nom: 'Vidéos', chemin: path.join(os.homedir(), 'Videos') },
+    { nom: 'Vidéos D', chemin: 'D:\\video' },
     { nom: 'Créations', chemin: 'D:\\Partage\\Creations' }
   ],
   photos: [
+    { nom: 'Photos', chemin: 'D:\\photos' },
     { nom: 'Images', chemin: path.join(os.homedir(), 'Pictures') },
     { nom: 'Créations', chemin: 'D:\\Partage\\Creations' }
   ],
@@ -70,10 +73,123 @@ function adresseLocale(ip) {
   return !!(m && +m[1] >= 16 && +m[1] <= 31);
 }
 
-// Le chemin demandé doit être dans un des dossiers autorisés
+// ---------- disques du PC ----------
+// Le disque de Windows (C:) n'est jamais ouvert en entier : seuls ses dossiers de médias réglés le sont.
+const SYSTEME = (process.env.SystemDrive || 'C:').toUpperCase();
+const CACHES = ['system volume information', 'recovery', 'config.msi', 'windowsapps', 'wpsystem', 'program files',
+  'program files (x86)', 'programdata', 'msocache', 'msdownld.tmp', 'windows', 'boot', 'perflogs'];
+let disquesVus = [];
+
+function lettreDe(chemin) {
+  const m = /^([a-zA-Z]):/.exec(chemin || '');
+  return m ? m[1].toUpperCase() + ':' : '';
+}
+
+// Disques présents (Windows) : lettre, nom, taille
+function lireDisquesWindows() {
+  return new Promise(ok => {
+    if (process.platform !== 'win32') return ok(null);
+    const cmd = 'Get-CimInstance Win32_LogicalDisk | ForEach-Object { $_.DeviceID + "|" + $_.VolumeName + "|" + $_.DriveType + "|" + $_.Size }';
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', cmd], { timeout: 10000, windowsHide: true }, (err, sortie) => {
+      if (err) return ok(null);
+      const l = [];
+      for (const ligne of String(sortie).split(/\r?\n/)) {
+        const [lettre, nom, genre, taille] = ligne.trim().split('|');
+        if (!/^[A-Z]:$/.test(lettre || '')) continue;
+        if (genre !== '2' && genre !== '3') continue; // 2 = disque amovible, 3 = disque interne ou externe
+        l.push({ lettre, nom: (nom || '').trim(), taille: Number(taille) || 0 });
+      }
+      ok(l);
+    });
+  });
+}
+
+function nomDisque(d) {
+  const go = d.taille ? Math.round(d.taille / 1e9) : 0;
+  const t = go >= 1000 ? (Math.round(go / 100) / 10) + ' To' : go > 0 ? go + ' Go' : '';
+  return [d.nom, t].filter(Boolean).join(' · ');
+}
+
+// Les disques déjà vus restent connus même débranchés (gardés dans reglages.json)
+async function disques() {
+  const presents = await lireDisquesWindows();
+  let r;
+  try { r = JSON.parse(fs.readFileSync(FICHIER_REGLAGES, 'utf8').replace(/^\uFEFF/, '')); } catch (e) { r = null; }
+  const connus = (r && Array.isArray(r.disques_connus)) ? r.disques_connus : [];
+  let change = false;
+  if (presents) {
+    for (const d of presents) {
+      const nom = nomDisque(d);
+      const k = connus.find(x => x.lettre === d.lettre);
+      if (!k) { connus.push({ lettre: d.lettre, nom }); change = true; }
+      else if (nom && k.nom !== nom) { k.nom = nom; change = true; }
+    }
+    // Les autres réglages du fichier sont conservés tels quels
+    if (change && r) {
+      r.disques_connus = connus;
+      try { fs.writeFileSync(FICHIER_REGLAGES, JSON.stringify(r, null, 2)); } catch (e) { /* rien */ }
+    }
+  }
+  disquesVus = connus.map(k => ({
+    lettre: k.lettre,
+    nom: k.nom || '',
+    present: presents ? presents.some(d => d.lettre === k.lettre) : null
+  }));
+  return disquesVus;
+}
+
+// État d'un dossier, sans jamais bloquer le serveur (un disque en veille peut mettre plusieurs secondes à répondre)
+function etat(chemin, ms) {
+  return new Promise(ok => {
+    let fini = false;
+    const t = setTimeout(() => { if (!fini) { fini = true; ok('veille'); } }, ms);
+    fs.stat(chemin, (e, st) => {
+      if (fini) return;
+      fini = true;
+      clearTimeout(t);
+      if (!e) return ok(st.isDirectory() ? 'ok' : 'absent');
+      ok(e.code === 'ENOENT' || e.code === 'ENOTDIR' ? 'absent' : (e.code === 'EACCES' || e.code === 'EPERM') ? 'refuse' : 'illisible');
+    });
+  });
+}
+
+const RAISONS = {
+  absent: 'Introuvable : disque débranché, ou dossier déplacé',
+  veille: 'Le disque ne répond pas (en veille ?) : réessaie dans quelques secondes',
+  refuse: 'Accès refusé par Windows',
+  illisible: 'Disque illisible'
+};
+
+async function racines(res, type) {
+  const r = reglages();
+  const liste = await disques();
+  const lst = [];
+  const verifs = (r[type] || []).map(d => etat(d.chemin, 15000).then(e => ({ d, e })));
+  for (const { d, e } of await Promise.all(verifs)) {
+    const l = lettreDe(d.chemin);
+    const k = liste.find(x => x.lettre === l);
+    let raison = e === 'ok' ? '' : RAISONS[e];
+    if (e === 'absent' && k && k.present === false) raison = 'Disque ' + l + ' débranché ou éteint';
+    lst.push({ nom: d.nom, chemin: d.chemin, connecte: e === 'ok', raison, disque: l, nomDisque: k ? k.nom : '' });
+  }
+  // Chaque disque (sauf celui de Windows) peut aussi s'ouvrir en entier
+  const entiers = liste.filter(k => k.lettre !== SYSTEME).map(k => etat(k.lettre + '\\', 15000).then(e => ({ k, e })));
+  for (const { k, e } of await Promise.all(entiers)) {
+    lst.push({
+      nom: 'Tout le disque ' + k.lettre, chemin: k.lettre + '\\', connecte: e === 'ok',
+      raison: e === 'ok' ? '' : (e === 'absent' ? 'Disque ' + k.lettre + ' débranché ou éteint' : RAISONS[e]),
+      disque: k.lettre, nomDisque: k.nom, entier: true
+    });
+  }
+  json(res, 200, { racines: lst, version: VERSION });
+}
+
+// Le chemin demandé doit être dans un des dossiers autorisés, ou sur un disque connu autre que celui de Windows
 function autorise(chemin) {
   const r = reglages();
   const p = path.resolve(chemin).toLowerCase();
+  const l = lettreDe(chemin);
+  if (l && l !== SYSTEME && disquesVus.some(k => k.lettre === l)) return true;
   for (const t of ['videos', 'photos', 'musique']) {
     for (const d of r[t] || []) {
       const base = path.resolve(d.chemin).toLowerCase();
@@ -98,6 +214,7 @@ function liste(res, chemin, type) {
     const fichiers = [];
     for (const it of items) {
       if (it.name.startsWith('.') || it.name.startsWith('$')) continue;
+      if (CACHES.includes(it.name.toLowerCase())) continue;
       const complet = path.join(chemin, it.name);
       if (it.isDirectory()) dossiers.push({ nom: it.name, chemin: complet });
       else if (exts.includes(path.extname(it.name).toLowerCase())) {
@@ -160,12 +277,11 @@ const serveur = http.createServer((req, res) => {
     switch (u.pathname) {
       case '/ping':
         return json(res, 200, { nom: 'passerelle-maison', version: VERSION, pc: os.hostname() });
-      case '/racines': {
-        const r = reglages();
-        const t = q.get('type');
-        const lst = (r[t] || []).filter(d => { try { return fs.statSync(d.chemin).isDirectory(); } catch (e) { return false; } });
-        return json(res, 200, { racines: lst });
-      }
+      case '/racines':
+        return racines(res, q.get('type')).catch(e => {
+          ecrireJournal('racines : ' + e.message);
+          json(res, 500, { erreur: 'Erreur de la passerelle' });
+        });
       case '/liste':
         return liste(res, q.get('chemin') || '', q.get('type') || '');
       case '/fichier':
@@ -188,3 +304,4 @@ serveur.on('error', e => {
 });
 serveur.listen(PORT, '0.0.0.0', () => ecrireJournal('passerelle démarrée sur le port ' + PORT));
 reglages();
+disques().catch(() => {});

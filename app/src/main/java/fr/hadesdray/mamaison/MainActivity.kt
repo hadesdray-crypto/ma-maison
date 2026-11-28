@@ -66,6 +66,7 @@ class MainActivity : Activity() {
     private val cTexte = Color.parseColor("#F3F5F9")
     private val cGris = Color.parseColor("#9AA4B5")
     private val cVert = Color.parseColor("#6FCF97")
+    private val cRouge = Color.parseColor("#EB5757")
 
     private val ui = Handler(Looper.getMainLooper())
     private val pile = ArrayList<() -> Unit>()
@@ -86,6 +87,11 @@ class MainActivity : Activity() {
     private class Connu(val base: String, val texte: String)
     private val dossiersConnus = HashMap<String, Connu>()
     private val positions = HashMap<String, IntArray>()
+
+    // Voyants des tuiles : -1 = vérification en cours, 0 = non connecté, 1 = connecté
+    private var etatPc = -1
+    private var etatAppareils = -1
+    private val voyants = HashMap<String, View>()
 
     private val modeTablette: Boolean
         get() = prefs.getBoolean("tablette", resources.configuration.smallestScreenWidthDp >= 600)
@@ -297,7 +303,7 @@ class MainActivity : Activity() {
     }
 
     /** Tuile : titre + information. Trois tailles : grande, moyenne (par défaut), petite (titre seul). */
-    private fun tuile(titre: String, info: String, active: Boolean = false, format: Int = MOYENNE, action: () -> Unit): LinearLayout {
+    private fun tuile(titre: String, info: String, active: Boolean = false, format: Int = MOYENNE, voyant: Int? = null, action: () -> Unit): LinearLayout {
         val t = LinearLayout(this)
         t.orientation = LinearLayout.VERTICAL
         val a = TextView(this)
@@ -334,7 +340,20 @@ class MainActivity : Activity() {
                 a.textSize = taille(18f)
             }
         }
-        t.addView(a)
+        if (voyant != null && format != PETITE) {
+            // Titre + voyant rond à droite (vert connecté, rouge non connecté, gris en vérification)
+            val ligne = LinearLayout(this)
+            ligne.orientation = LinearLayout.HORIZONTAL
+            ligne.gravity = Gravity.CENTER_VERTICAL
+            ligne.addView(a, LinearLayout.LayoutParams(0, -2, 1f))
+            val v = View(this)
+            v.tag = "voyant"
+            colorerVoyant(v, voyant)
+            val lpv = LinearLayout.LayoutParams(dp(12), dp(12))
+            lpv.setMargins(dp(8), 0, 0, 0)
+            ligne.addView(v, lpv)
+            t.addView(ligne)
+        } else t.addView(a)
         if (format != PETITE) {
             val b = TextView(this)
             b.text = info
@@ -347,6 +366,12 @@ class MainActivity : Activity() {
         t.setOnClickListener { action() }
         effetAppui(t)
         return t
+    }
+
+    private fun colorerVoyant(v: View, etat: Int) {
+        v.background = rond(when (etat) { 1 -> cVert; 0 -> cRouge; else -> cGris }, dp(6))
+        v.alpha = if (etat < 0) 0.6f else 1f
+        v.contentDescription = when (etat) { 1 -> "connecté"; 0 -> "non connecté"; else -> "vérification en cours" }
     }
 
     /** Range des vues en rangées égales ; la dernière rangée est complétée par du vide. */
@@ -443,6 +468,7 @@ class MainActivity : Activity() {
         val parler = bouton(c, "Parler à la maison") { ecouter() }
         parler.contentDescription = "Donner un ordre à la voix"
 
+        voyants.clear()
         val premiere = mosaique(c, cases().filter { lieu(it) == "accueil" })
         // Télé : la télécommande part de la première grande tuile (pas du petit « ? » en haut à droite)
         if (Tv.isTv(this)) premiere?.let { v -> v.post { v.requestFocus() } }
@@ -466,6 +492,9 @@ class MainActivity : Activity() {
             if (temp != null) parties.add("Température : ${temp.etat} ${temp.unite}")
             resume.text = parties.joinToString("\n")
             resume.setTextColor(if (p != null) cVert else cGris)
+            etatPc = if (p != null) 1 else 0
+            etatAppareils = if (l != null) 1 else 0
+            majVoyants()
             if (l != null && appareilsCache == null) {
                 appareilsCache = l
                 accueil()
@@ -473,10 +502,24 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun majVoyants() {
+        val toutes = cases()
+        for ((id, v) in voyants) {
+            val e = toutes.firstOrNull { it.id == id }?.etat?.invoke() ?: continue
+            colorerVoyant(v, e)
+        }
+    }
+
     // ---------- tuiles de l'accueil : tailles, ordre, tuile « Maison » ----------
 
     private class Case(val id: String, val titre: String, val court: String, val info: String,
-                       val formatDefaut: Int, val lieuDefaut: String, val action: () -> Unit)
+                       val formatDefaut: Int, val lieuDefaut: String, val action: () -> Unit) {
+        var etat: (() -> Int)? = null
+        fun avec(e: () -> Int): Case { etat = e; return this }
+    }
+
+    // Appareils de la maison : rouge si rien n'est relié, sinon selon la dernière réponse
+    private fun etatMaison(): Int = if (!moteur.pret && !smartLife.pret) 0 else etatAppareils
 
     private fun compte(dom: Set<String>, allumes: Boolean = false): String {
         val l = appareilsCache ?: return if (moteur.pret || smartLife.pret) "…" else "À relier"
@@ -491,21 +534,21 @@ class MainActivity : Activity() {
     /** Toutes les tuiles, dans l'ordre choisi (celui de départ tant que rien n'a été déplacé). */
     private fun cases(): List<Case> {
         val l = arrayListOf(
-            Case("videos", "Vidéos", "Vidéos", "Films et vidéos du PC", GRANDE, "accueil") { ouvrir("Vidéos", { medias("videos", "Vidéos") }) },
+            Case("videos", "Vidéos", "Vidéos", "Films et vidéos du PC", GRANDE, "accueil") { ouvrir("Vidéos", { medias("videos", "Vidéos") }) }.avec { etatPc },
             Case("jeux", "Jeux", "Jeux", "GeForce Now, Amazon, Xbox…", GRANDE, "accueil") { ouvrir("Jeux", { jeux() }) },
-            Case("musique", "Musique", "Musique", "Musiques du PC", GRANDE, "accueil") { ouvrir("Musique", { medias("musique", "Musique") }) },
-            Case("photos", "Photos", "Photos", "Images du PC", GRANDE, "accueil") { ouvrir("Photos", { medias("photos", "Photos") }) },
-            Case("lumieres", "Lumières", "Lumières", compte(setOf("light"), true), MOYENNE, "accueil") { ouvrir("Lumières", { appareilsDe("Lumières", setOf("light"), "lumière") }) },
+            Case("musique", "Musique", "Musique", "Musiques du PC", GRANDE, "accueil") { ouvrir("Musique", { medias("musique", "Musique") }) }.avec { etatPc },
+            Case("photos", "Photos", "Photos", "Images du PC", GRANDE, "accueil") { ouvrir("Photos", { medias("photos", "Photos") }) }.avec { etatPc },
+            Case("lumieres", "Lumières", "Lumières", compte(setOf("light"), true), MOYENNE, "accueil") { ouvrir("Lumières", { appareilsDe("Lumières", setOf("light"), "lumière") }) }.avec { etatMaison() },
             Case("tele", "Télé et enceintes", "Télé", if (diffusion.enCours()) "Envoi en cours — télécommande" else "Nest Mini, Freebox, télé", MOYENNE, "accueil") { ouvrir("Télé", { teleEnceintes() }) },
             Case("youpub", "YouPub", "YouPub", "Vidéos, musique et télé sans pub", MOYENNE, "accueil") { ouvrirYouPub() },
-            Case("cameras", "Caméras", "Caméras", compte(setOf("camera")), MOYENNE, "accueil") { ouvrir("Caméras", { cameras() }) },
-            Case("dyson", "Dyson", "Dyson", if (dyson.relie) "${dyson.machines.size} appareil(s) : ventilateur, aspirateur" else "Relier ton compte Dyson", MOYENNE, "accueil") { ouvrir("Dyson", { dysonAccueil() }) },
-            Case("maison", "Maison", "Maison", "", MOYENNE, "accueil") { ouvrir("Maison", { groupeMaison() }) },
-            Case("prises", "Prises", "Prises", compte(setOf("switch"), true), MOYENNE, "maison") { ouvrir("Prises", { appareilsDe("Prises", setOf("switch"), "prise") }) },
-            Case("volets", "Volets et portes", "Volets", compte(setOf("cover", "lock")), MOYENNE, "maison") { ouvrir("Volets", { appareilsDe("Volets et portes", setOf("cover", "lock"), "volet ou porte") }) },
-            Case("capteurs", "Capteurs", "Capteurs", compte(setOf("sensor", "binary_sensor", "weather", "climate")), MOYENNE, "maison") { ouvrir("Capteurs", { capteurs() }) },
+            Case("cameras", "Caméras", "Caméras", compte(setOf("camera")), MOYENNE, "accueil") { ouvrir("Caméras", { cameras() }) }.avec { etatMaison() },
+            Case("dyson", "Dyson", "Dyson", if (dyson.relie) "${dyson.machines.size} appareil(s) : ventilateur, aspirateur" else "Relier ton compte Dyson", MOYENNE, "accueil") { ouvrir("Dyson", { dysonAccueil() }) }.avec { if (dyson.relie) 1 else 0 },
+            Case("maison", "Maison", "Maison", "", MOYENNE, "accueil") { ouvrir("Maison", { groupeMaison() }) }.avec { etatMaison() },
+            Case("prises", "Prises", "Prises", compte(setOf("switch"), true), MOYENNE, "maison") { ouvrir("Prises", { appareilsDe("Prises", setOf("switch"), "prise") }) }.avec { etatMaison() },
+            Case("volets", "Volets et portes", "Volets", compte(setOf("cover", "lock")), MOYENNE, "maison") { ouvrir("Volets", { appareilsDe("Volets et portes", setOf("cover", "lock"), "volet ou porte") }) }.avec { etatMaison() },
+            Case("capteurs", "Capteurs", "Capteurs", compte(setOf("sensor", "binary_sensor", "weather", "climate")), MOYENNE, "maison") { ouvrir("Capteurs", { capteurs() }) }.avec { etatMaison() },
             Case("conso", "Consommation", "Conso.", "Électricité, eau, gaz", MOYENNE, "maison") { ouvrir("Consommation", { consommation() }) },
-            Case("ambiances", "Ambiances", "Ambiances", compte(setOf("scene", "script")), MOYENNE, "maison") { ouvrir("Ambiances", { appareilsDe("Ambiances", setOf("scene", "script"), "ambiance") }) },
+            Case("ambiances", "Ambiances", "Ambiances", compte(setOf("scene", "script")), MOYENNE, "maison") { ouvrir("Ambiances", { appareilsDe("Ambiances", setOf("scene", "script"), "ambiance") }) }.avec { etatMaison() },
             Case("plannings", "Plannings", "Plannings", "Allumer, éteindre à heure fixe", MOYENNE, "maison") { ouvrir("Plannings", { plannings() }) },
             Case("smartlife", "Smart Life", "Smart Life", if (smartLife.pret) "Relié — ouvrir l'appli Smart Life" else "Ouvrir l'appli Smart Life", PETITE, "accueil") { ouvrirAppli("com.tuya.smartlife", "Smart Life") },
             Case("googlehome", "Google Home", "Google Home", "Ouvrir l'appli Google Home", PETITE, "accueil") { ouvrirAppli("com.google.android.apps.chromecast.app", "Google Home") },
@@ -530,7 +573,8 @@ class MainActivity : Activity() {
             if (groupe.isEmpty()) continue
             val vues = groupe.map { k ->
                 val info = if (k.id == "maison") dansMaison.joinToString(", ") { it.court }.lowercase(Locale.FRANCE).replaceFirstChar { it.uppercase() } else k.info
-                val v = tuile(if (f == PETITE) k.court else k.titre, info, false, f) { k.action() }
+                val v = tuile(if (f == PETITE) k.court else k.titre, info, false, f, k.etat?.invoke()) { k.action() }
+                if (k.etat != null) v.findViewWithTag<View>("voyant")?.let { voyants[k.id] = it }
                 v.isLongClickable = true
                 v.setOnLongClickListener { reglerCase(k); true }
                 v as View
@@ -605,7 +649,7 @@ class MainActivity : Activity() {
     // ---------- médias du PC ----------
 
     private fun medias(type: String, titre: String) {
-        val c = page(titre, "Sur le PC de la maison")
+        val c = page(titre, "Sur le PC de la maison, disque par disque")
         val cle = "racines|$type"
         val connu = dossiersConnus[cle]
         var affiche: String? = null
@@ -613,20 +657,60 @@ class MainActivity : Activity() {
             affiche = t
             c.removeAllViews()
             val tab = (try { JSONObject(t).optJSONArray("racines") } catch (e: Exception) { null }) ?: JSONArray()
-            if (tab.length() == 0) texte(c, "Aucun dossier trouvé sur le PC pour cette rubrique.")
-            val tuiles = ArrayList<View>()
+            if (tab.length() == 0) texte(c, "Aucun dossier ni disque trouvé sur le PC pour cette rubrique.")
+            // Regroupement par disque, dans l'ordre d'arrivée
+            val groupes = LinkedHashMap<String, ArrayList<JSONObject>>()
             for (i in 0 until tab.length()) {
                 val o = tab.getJSONObject(i)
-                val nom = o.optString("nom")
-                val chemin = o.optString("chemin")
-                tuiles.add(tuile(nom, "Dossier") { ouvrir("$titre/$nom", { dossier(type, nom, chemin) }) })
+                groupes.getOrPut(o.optString("disque", "")) { ArrayList() }.add(o)
             }
-            grille(c, tuiles)
+            for ((lettre, liste) in groupes) {
+                val nomDisque = liste.firstOrNull { it.optString("nomDisque").isNotEmpty() }?.optString("nomDisque") ?: ""
+                val entier = liste.firstOrNull { it.optBoolean("entier") }
+                val branche = if (entier != null) entier.optBoolean("connecte", true) else liste.any { it.optBoolean("connecte", true) }
+                // En-tête du disque : nom + voyant
+                val tete = LinearLayout(this)
+                tete.orientation = LinearLayout.HORIZONTAL
+                tete.gravity = Gravity.CENTER_VERTICAL
+                tete.setPadding(dp(6), dp(16), dp(6), dp(4))
+                val v = View(this)
+                colorerVoyant(v, if (branche) 1 else 0)
+                tete.addView(v, LinearLayout.LayoutParams(dp(12), dp(12)))
+                val n = TextView(this)
+                n.text = (if (lettre.isEmpty()) "Ce PC" else "Disque $lettre") + (if (nomDisque.isNotEmpty()) " — $nomDisque" else "")
+                n.setTextColor(cTexte)
+                n.textSize = taille(17f)
+                n.setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+                n.setPadding(dp(10), 0, dp(10), 0)
+                tete.addView(n, LinearLayout.LayoutParams(0, -2, 1f))
+                val e = TextView(this)
+                e.text = if (branche) "connecté" else "non connecté"
+                e.setTextColor(if (branche) cVert else cRouge)
+                e.textSize = taille(13f)
+                tete.addView(e)
+                c.addView(tete)
+                val tuiles = ArrayList<View>()
+                for (o in liste) {
+                    val nom = o.optString("nom")
+                    val chemin = o.optString("chemin")
+                    val ok = o.optBoolean("connecte", true)
+                    val raison = o.optString("raison")
+                    val tu = if (ok) tuile(nom, if (o.optBoolean("entier")) "Tous les dossiers du disque" else "Dossier") {
+                        ouvrir("$titre/$nom", { dossier(type, nom, chemin) })
+                    } else tuile(nom, "Non connecté" + (if (raison.isNotEmpty()) " — $raison" else "")) {
+                        message("$nom : non connecté." + (if (raison.isNotEmpty()) "\n$raison." else "") + "\nBranche ou allume le disque, puis touche « Vérifier de nouveau ».")
+                    }
+                    if (!ok) tu.alpha = 0.5f
+                    tuiles.add(tu)
+                }
+                grille(c, tuiles)
+            }
+            bouton(c, "Vérifier de nouveau") { dossiersConnus.remove(cle); rafraichir() }
         }
-        if (connu != null) montrer(connu.texte) else attente(c, "Connexion au PC…")
+        if (connu != null) montrer(connu.texte) else attente(c, "Connexion au PC et réveil des disques…")
         enFond({
             val p = passerelle.trouver()
-            Pair(p, p?.let { Reseau.lire("$it/racines?type=$type", 5000) })
+            Pair(p, p?.let { Reseau.lire("$it/racines?type=$type", 25000) })
         }) { (p, t) ->
             if (p == null || t == null) {
                 c.removeAllViews()

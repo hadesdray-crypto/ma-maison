@@ -9,7 +9,9 @@ import android.os.Looper
 import android.widget.Toast
 import androidx.mediarouter.media.MediaRouteSelector
 import androidx.mediarouter.media.MediaRouter
+import com.google.android.gms.cast.CastDevice
 import com.google.android.gms.cast.CastMediaControlIntent
+import com.google.android.gms.cast.CastStatusCodes
 import com.google.android.gms.cast.MediaInfo
 import com.google.android.gms.cast.MediaMetadata
 import com.google.android.gms.cast.MediaQueueItem
@@ -69,6 +71,23 @@ class Diffusion(private val activite: Activity) {
         }
     }
 
+    /** Motif exact d'un refus, en clair (et son numéro, pour le retrouver). */
+    private fun motif(code: Int): String {
+        val t = when (code) {
+            CastStatusCodes.TIMEOUT -> "il n'a pas répondu à temps (éteint, ou trop loin du Wi-Fi ?)"
+            CastStatusCodes.NETWORK_ERROR -> "problème de réseau Wi-Fi"
+            CastStatusCodes.AUTHENTICATION_FAILED -> "il a refusé l'identification"
+            CastStatusCodes.APPLICATION_NOT_FOUND, CastStatusCodes.APPLICATION_NOT_RUNNING -> "il ne sait pas ouvrir le lecteur"
+            CastStatusCodes.CANCELED, CastStatusCodes.INTERRUPTED -> "connexion annulée ou coupée"
+            CastStatusCodes.DEVICE_CONNECTION_SUSPENDED -> "connexion suspendue"
+            CastStatusCodes.FAILED -> "il a refusé (fichier non pris en charge, ou PC injoignable depuis l'enceinte)"
+            CastStatusCodes.INVALID_REQUEST -> "demande refusée"
+            CastStatusCodes.NOT_ALLOWED -> "action non autorisée"
+            else -> "refus"
+        }
+        return "$t (code $code)."
+    }
+
     /** Cherche les appareils pendant 4 secondes, puis propose la liste. */
     fun envoyer(liens: Array<String>, noms: Array<String>, depart: Int, genre: String) {
         val cc = contexte()
@@ -96,10 +115,17 @@ class Diffusion(private val activite: Activity) {
                 message("Aucune enceinte ni télé trouvée. Elles doivent être allumées et sur le même Wi-Fi.")
                 return@postDelayed
             }
+            // Une enceinte (ou un groupe d'enceintes) ne lit que le son : on le dit dans la liste
+            val sonSeul = routes.map { r ->
+                val d = try { CastDevice.getFromBundle(r.extras) } catch (e: Exception) { null }
+                d != null && !d.hasCapability(CastDevice.CAPABILITY_VIDEO_OUT)
+            }
             AlertDialog.Builder(activite)
                 .setTitle("Envoyer sur…")
-                .setItems(routes.map { it.name }.toTypedArray()) { _, w ->
-                    lancer(cc, routeur, routes[w], liens, noms, depart, genre)
+                .setItems(routes.indices.map { i -> routes[i].name + if (sonSeul[i]) "  (enceinte : son seulement)" else "" }.toTypedArray()) { _, w ->
+                    if (sonSeul[w] && genre != "musique") {
+                        message(routes[w].name + " est une enceinte : elle ne lit que le son. Envoie de la musique dessus, ou choisis la télé pour " + (if (genre == "photos") "les photos." else "les vidéos."))
+                    } else lancer(cc, routeur, routes[w], liens, noms, depart, genre)
                 }
                 .setNegativeButton("Annuler", null)
                 .show()
@@ -126,7 +152,7 @@ class Diffusion(private val activite: Activity) {
             }
             override fun onSessionStartFailed(s: CastSession, e: Int) {
                 gestion.removeSessionManagerListener(this, CastSession::class.java)
-                message("${route.name} n'a pas accepté la connexion.")
+                message("${route.name} n'a pas accepté la connexion : " + motif(e))
             }
             override fun onSessionStarting(s: CastSession) {}
             override fun onSessionEnding(s: CastSession) {}
@@ -166,7 +192,7 @@ class Diffusion(private val activite: Activity) {
         client.queueLoad(elements.toTypedArray(), depart.coerceIn(0, elements.size - 1), MediaStatus.REPEAT_MODE_REPEAT_OFF, null)
             .setResultCallback { r ->
                 if (r.status.isSuccess) telecommande(s, appareil)
-                else message("$appareil ne sait pas lire ce fichier (format non pris en charge).")
+                else message("$appareil n'a pas pu lire : " + motif(r.status.statusCode))
             }
     }
 
