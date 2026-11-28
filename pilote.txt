@@ -1,0 +1,107 @@
+toucher exact Vidéos True
+INTROUVABLE : Vidéos essai
+toucher Vidéos essai False
+capture 01-liste ['‹ Retour', 'Vidéos', '?', 'Sur le PC de la maison, disque par disque', 'Le PC de la maison ne répond pas.', "Vérifie que le PC est allumé et que ce téléphone est sur le Wi-Fi de la maison. L'appli cherche toute seule sur tout le réseau.", 'Réessayer']
+INTROUVABLE : Essai japonais
+toucher Essai japonais False
+capture 02-lecture ['‹ Retour', 'Vidéos', '?', 'Sur le PC de la maison, disque par disque', 'Le PC de la maison ne répond pas.', "Vérifie que le PC est allumé et que ce téléphone est sur le Wi-Fi de la maison. L'appli cherche toute seule sur tout le réseau.", 'Réessayer']
+INTROUVABLE : Réglages
+toucher Réglages False
+INTROUVABLE : Réglages
+toucher Réglages False
+capture 03-menu-auto ['‹ Retour', 'Vidéos', '?', 'Sur le PC de la maison, disque par disque', 'Le PC de la maison ne répond pas.', "Vérifie que le PC est allumé et que ce téléphone est sur le Wi-Fi de la maison. L'appli cherche toute seule sur tout le réseau.", 'Réessayer']
+INTROUVABLE : Langue
+toucher Langue False
+capture 04-langues ['‹ Retour', 'Vidéos', '?', 'Sur le PC de la maison, disque par disque', 'Le PC de la maison ne répond pas.', "Vérifie que le PC est allumé et que ce téléphone est sur le Wi-Fi de la maison. L'appli cherche toute seule sur tout le réseau.", 'Réessayer']
+INTROUVABLE : Anglais
+toucher Anglais False
+capture 05-menu-anglais ['‹ Retour', 'Vidéos', '?', 'Sur le PC de la maison, disque par disque', 'Le PC de la maison ne répond pas.', "Vérifie que le PC est allumé et que ce téléphone est sur le Wi-Fi de la maison. L'appli cherche toute seule sur tout le réseau.", 'Réessayer']
+INTROUVABLE : Sous-titres
+toucher Sous-titres False
+capture 06-sous-titres ['‹ Retour', 'Vidéos', '?', 'Sur le PC de la maison, disque par disque', 'Le PC de la maison ne répond pas.', "Vérifie que le PC est allumé et que ce téléphone est sur le Wi-Fi de la maison. L'appli cherche toute seule sur tout le réseau.", 'Réessayer']
+INTROUVABLE : Aucun
+toucher Aucun False
+capture 07-menu-sans-sous-titres ['‹ Retour', 'Vidéos', '?', 'Sur le PC de la maison, disque par disque', 'Le PC de la maison ne répond pas.', "Vérifie que le PC est allumé et que ce téléphone est sur le Wi-Fi de la maison. L'appli cherche toute seule sur tout le réseau.", 'Réessayer']
+INTROUVABLE : Sous-titres
+toucher Sous-titres False
+INTROUVABLE : Français
+toucher Français False
+INTROUVABLE : Taille
+toucher Taille False
+capture 08-taille ['‹ Retour', 'Vidéos', '?', 'Sur le PC de la maison, disque par disque', 'Le PC de la maison ne répond pas.', "Vérifie que le PC est allumé et que ce téléphone est sur le Wi-Fi de la maison. L'appli cherche toute seule sur tout le réseau.", 'Réessayer']
+INTROUVABLE : Très grande
+toucher Très grande False
+INTROUVABLE : Couleur
+toucher Couleur False
+capture 09-couleur ['‹ Retour', 'Vidéos', '?', 'Sur le PC de la maison, disque par disque', 'Le PC de la maison ne répond pas.', "Vérifie que le PC est allumé et que ce téléphone est sur le Wi-Fi de la maison. L'appli cherche toute seule sur tout le réseau.", 'Réessayer']
+INTROUVABLE : Jaune
+toucher Jaune False
+INTROUVABLE : Vitesse
+toucher Vitesse False
+capture 10-vitesse ['‹ Retour', 'Vidéos', '?', 'Sur le PC de la maison, disque par disque', 'Le PC de la maison ne répond pas.', "Vérifie que le PC est allumé et que ce téléphone est sur le Wi-Fi de la maison. L'appli cherche toute seule sur tout le réseau.", 'Réessayer']
+INTROUVABLE : 1,5x
+toucher 1,5x False
+INTROUVABLE : Format
+toucher Format False
+capture 11-format ['‹ Retour', 'Vidéos', '?', 'Sur le PC de la maison, disque par disque', 'Le PC de la maison ne répond pas.', "Vérifie que le PC est allumé et que ce téléphone est sur le Wi-Fi de la maison. L'appli cherche toute seule sur tout le réseau.", 'Réessayer']
+INTROUVABLE : Zoom
+toucher Zoom False
+capture 12-menu-final ['‹ Retour', 'Vidéos', '?', 'Sur le PC de la maison, disque par disque', 'Le PC de la maison ne répond pas.', "Vérifie que le PC est allumé et que ce téléphone est sur le Wi-Fi de la maison. L'appli cherche toute seule sur tout le réseau.", 'Réessayer']
+INTROUVABLE : Fermer
+toucher Fermer False
+capture 13-video-sous-titres-jaunes ['‹ Retour', 'Vidéos', '?', 'Sur le PC de la maison, disque par disque', 'Le PC de la maison ne répond pas.', "Vérifie que le PC est allumé et que ce téléphone est sur le Wi-Fi de la maison. L'appli cherche toute seule sur tout le réseau.", 'Réessayer']
+capture 14-retour-liste ['Ma Maison', '?', '20:02', 'Samedi 28 novembre', 'Recherche de la maison…', 'Parler à la maison', 'Vidéos', 'Films et vidéos du PC', 'Jeux', 'GeForce Now, Amazon, Xbox…', 'Musique', 'Musiques du PC', 'Photos', 'Images du PC', 'Lumières', 'À relier', 'Télé et enceintes', 'Nest Mini, Freebox, télé', 'YouPub', 'Vidéos, musique et télé sans pub', 'Caméras', 'À relier', 'Dyson', 'Relier ton compte Dyson', 'Réseau', 'Tout ce qui est sur le Wi-Fi']
+INTROUVABLE : Essai langues
+toucher Essai langues False
+capture 15-menu-retenu ['Ma Maison', '?', 'Musique', 'Musiques du PC', 'Photos', 'Images du PC', 'Lumières', 'À relier', 'Télé et enceintes', 'Nest Mini, Freebox, télé', 'YouPub', 'Vidéos, musique et télé sans pub', 'Caméras', 'À relier', 'Dyson', 'Relier ton compte Dyson', 'Réseau', 'Tout ce qui est sur le Wi-Fi', 'Maison', 'Prises, volets, capteurs, conso., ambiances, plannings', 'Smart Life', 'Google Home', 'Ajouter', 'Réglages', 'Appui long sur une tuile : changer sa taille ou sa place.']
+INTROUVABLE : Sous-titres
+toucher Sous-titres False
+capture 16-sous-titres-2 ['Ma Maison', '?', 'Musique', 'Musiques du PC', 'Photos', 'Images du PC', 'Lumières', 'À relier', 'Télé et enceintes', 'Nest Mini, Freebox, télé', 'YouPub', 'Vidéos, musique et télé sans pub', 'Caméras', 'À relier', 'Dyson', 'Relier ton compte Dyson', 'Réseau', 'Tout ce qui est sur le Wi-Fi', 'Maison', 'Prises, volets, capteurs, conso., ambiances, plannings', 'Smart Life', 'Google Home', 'Ajouter', 'Réglages', 'Appui long sur une tuile : changer sa taille ou sa place.']
+INTROUVABLE : Anglais
+toucher Anglais False
+INTROUVABLE : Langue
+toucher Langue False
+capture 17-langues-2 ['Ma Maison', '?', 'Musique', 'Musiques du PC', 'Photos', 'Images du PC', 'Lumières', 'À relier', 'Télé et enceintes', 'Nest Mini, Freebox, télé', 'YouPub', 'Vidéos, musique et télé sans pub', 'Caméras', 'À relier', 'Dyson', 'Relier ton compte Dyson', 'Réseau', 'Tout ce qui est sur le Wi-Fi', 'Maison', 'Prises, volets, capteurs, conso., ambiances, plannings', 'Smart Life', 'Google Home', 'Ajouter', 'Réglages', 'Appui long sur une tuile : changer sa taille ou sa place.']
+INTROUVABLE : Français
+toucher Français False
+capture 18-menu-francais ['Ma Maison', '?', 'Musique', 'Musiques du PC', 'Photos', 'Images du PC', 'Lumières', 'À relier', 'Télé et enceintes', 'Nest Mini, Freebox, télé', 'YouPub', 'Vidéos, musique et télé sans pub', 'Caméras', 'À relier', 'Dyson', 'Relier ton compte Dyson', 'Réseau', 'Tout ce qui est sur le Wi-Fi', 'Maison', 'Prises, volets, capteurs, conso., ambiances, plannings', 'Smart Life', 'Google Home', 'Ajouter', 'Réglages', 'Appui long sur une tuile : changer sa taille ou sa place.']
+capture 19-focus-telecommande ['Ma Maison', '?', 'Musique', 'Musiques du PC', 'Photos', 'Images du PC', 'Lumières', 'À relier', 'Télé et enceintes', 'Nest Mini, Freebox, télé', 'YouPub', 'Vidéos, musique et télé sans pub', 'Caméras', 'À relier', 'Dyson', 'Relier ton compte Dyson', 'Réseau', 'Tout ce qui est sur le Wi-Fi', 'Maison', 'Prises, volets, capteurs, conso., ambiances, plannings', 'Smart Life', 'Google Home', 'Ajouter', 'Réglages', 'Appui long sur une tuile : changer sa taille ou sa place.']
+capture 20-focus-sous-menu ['Ma Maison', '?', 'Musique', 'Musiques du PC', 'Photos', 'Images du PC', 'Lumières', 'À relier', 'Télé et enceintes', 'Nest Mini, Freebox, télé', 'YouPub', 'Vidéos, musique et télé sans pub', 'Caméras', 'À relier', 'Dyson', 'Relier ton compte Dyson', 'Réseau', 'Tout ce qui est sur le Wi-Fi', 'Maison', 'Prises, volets, capteurs, conso., ambiances, plannings', 'Smart Life', 'Google Home', 'Ajouter', 'Réglages', 'Appui long sur une tuile : changer sa taille ou sa place.']
+capture 21-retour-ferme-le-sous-menu ['November 28', 'SATURDAY, 2026', 'Maps', 'WALLPAPERS', 'WIDGETS', 'SETTINGS']
+capture 22-retour-ferme-le-menu ['November 28', 'SATURDAY, 2026', 'Maps', 'Phone', 'Messenger', 'Gmail', 'Chrome']
+capture 23-retour-liste ['November 28', 'SATURDAY, 2026', 'Maps', 'Phone', 'Messenger', 'Gmail', 'Chrome']
+INTROUVABLE : Essai externe
+toucher Essai externe False
+capture 24-menu-externe ['November 28', 'SATURDAY, 2026', 'Maps', 'WALLPAPERS', 'WIDGETS', 'SETTINGS']
+INTROUVABLE : Sous-titres
+toucher Sous-titres False
+capture 25-sous-titres-fichier ['November 28', 'SATURDAY, 2026', 'Maps', 'WALLPAPERS', 'WIDGETS', 'SETTINGS']
+INTROUVABLE : Français
+toucher Français False
+INTROUVABLE : Fermer
+toucher Fermer False
+capture 26-video-fichier ['November 28', 'SATURDAY, 2026', 'Maps', 'Phone', 'Messenger', 'Gmail', 'Chrome']
+INTROUVABLE : Essai vlc
+toucher Essai vlc False
+capture 27-vlc ['November 28', 'SATURDAY, 2026', 'Maps', 'Phone', 'Messenger', 'Gmail', 'Chrome']
+INTROUVABLE : Réglages
+toucher Réglages False
+capture 28-vlc-menu ['November 28', 'SATURDAY, 2026', 'Maps', 'WALLPAPERS', 'WIDGETS', 'SETTINGS']
+INTROUVABLE : Langue
+toucher Langue False
+capture 29-vlc-langues ['November 28', 'SATURDAY, 2026', 'Maps', 'Phone', 'Messenger', 'Gmail', 'Chrome']
+INTROUVABLE : Piste 2
+toucher Piste 2 False
+capture 30-vlc-menu-apres ['November 28', 'SATURDAY, 2026', 'Maps', 'WALLPAPERS', 'WIDGETS', 'SETTINGS']
+INTROUVABLE : Vitesse
+toucher Vitesse False
+INTROUVABLE : 0,5x
+toucher 0,5x False
+INTROUVABLE : Format
+toucher Format False
+INTROUVABLE : Remplir
+toucher Remplir False
+INTROUVABLE : Fermer
+toucher Fermer False
+capture 31-vlc-video ['November 28', 'SATURDAY, 2026', 'Maps', 'WALLPAPERS', 'WIDGETS', 'SETTINGS']
+capture 32-fin ['November 28', 'SATURDAY, 2026', 'Maps', 'Phone', 'Messenger', 'Gmail', 'Chrome']
