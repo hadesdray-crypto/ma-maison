@@ -1,0 +1,28 @@
+--------- beginning of main
+11-28 19:55:19.114  2424  2424 I MaisonLecteur: etat=2 position=0 reserve=0
+11-28 19:55:20.842  2424  2424 I MaisonLecteur: sous-titres automatiques : i:g3
+11-28 19:55:21.652  2424  2424 I MaisonLecteur: etat=3 position=0 reserve=60023
+11-28 19:56:23.041  2424  2424 I MaisonLecteur: sous-titres automatiques : none
+11-28 19:56:29.998  2424  2424 I MaisonLecteur: langue automatique : Français
+11-28 19:56:29.999  2424  2424 I MaisonLecteur: sous-titres automatiques : none
+11-28 19:56:51.318  2424  2424 I MaisonLecteur: langue choisie : Anglais
+11-28 19:56:51.319  2424  2424 I MaisonLecteur: sous-titres automatiques : i:s3
+11-28 19:57:07.902  2424  2424 I MaisonLecteur: sous-titres choisis : none
+11-28 19:57:20.706  2424  2424 I MaisonLecteur: sous-titres choisis : i:s3
+11-28 19:57:25.408  2424  2424 I MaisonLecteur: sous-titres automatiques : none
+11-28 19:58:36.218  2424  2424 I MaisonLecteur: etat=2 position=0 reserve=0
+11-28 19:58:37.147  2424  2424 I MaisonLecteur: langue automatique : Anglais
+11-28 19:58:37.153  2424  2424 I MaisonLecteur: sous-titres automatiques : i:g3
+11-28 19:58:37.588  2424  2424 I MaisonLecteur: etat=3 position=0 reserve=47810
+11-28 19:59:07.370  2424  2424 I MaisonLecteur: sous-titres choisis : i:g4
+11-28 19:59:20.424  2424  2424 I MaisonLecteur: langue choisie : Français
+11-28 19:59:41.518  2424  2424 I MaisonLecteur: etat=2 position=0 reserve=60029
+11-28 19:59:42.448  2424  2424 I MaisonLecteur: sous-titres automatiques : none
+11-28 19:59:58.450  2424  2424 I MaisonLecteur: etat=2 position=0 reserve=0
+11-28 19:59:58.676  2424  2424 I MaisonLecteur: sous-titres en fichier : Français (fichier)
+11-28 19:59:58.676  2424  2424 I MaisonLecteur: sous-titres automatiques : none
+11-28 19:59:59.714  2424  2424 I MaisonLecteur: etat=3 position=0 reserve=60000
+11-28 20:00:29.700  2424  2424 I MaisonLecteur: sous-titres choisis : x:0
+11-28 20:00:48.531  2424  2424 I MaisonLecteur: sous-titres automatiques : none
+11-28 20:01:28.269  2424  2424 I MaisonLecteur: langue choisie : Piste 2
+11-28 20:01:58.701  2424  2424 I MaisonLecteur: sous-titres automatiques : none

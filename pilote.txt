@@ -1,0 +1,69 @@
+toucher exact Vidéos True
+toucher Vidéos essai True
+capture 01-liste ['‹ Retour', 'Vidéos essai', '?', 'Tout lire ici à la suite', 'Envoyer sur la télé', "Appui long sur un film ou un dossier : indiquer l'âge conseillé (pastille de couleur).", 'Essai externe.mp4', 'Essai japonais.mkv', '1 Mo', 'Essai langues.mkv', '1 Mo', 'Essai vlc.avi', '2 Mo', 'Essai.mp4']
+toucher Essai japonais True
+capture 02-lecture ['Essai japonais.mkv', 'Bonjour : sous-titres français intégrés']
+toucher Réglages True
+capture 03-menu-auto ['Réglages', 'Langue', 'Français', 'Sous-titres', 'Aucun', 'Taille des sous-titres', 'Moyenne', 'Couleur des sous-titres', 'Blanc', 'Vitesse', 'Normale', "Format de l'image", 'Adapter', 'Fermer']
+toucher Langue True
+capture 04-langues ['Langue de la vidéo', 'Français', 'Choisi', 'Anglais', 'Retour', 'Fermer']
+toucher Anglais True
+capture 05-menu-anglais ['Réglages', 'Langue', 'Anglais', 'Sous-titres', 'Français', 'Taille des sous-titres', 'Moyenne', 'Couleur des sous-titres', 'Blanc', 'Vitesse', 'Normale', "Format de l'image", 'Adapter', 'Fermer']
+toucher Sous-titres True
+capture 06-sous-titres ['Sous-titres', 'Aucun', 'Français', 'Choisi', 'Anglais', 'Retour', 'Fermer']
+toucher Aucun True
+capture 07-menu-sans-sous-titres ['Réglages', 'Langue', 'Anglais', 'Sous-titres', 'Aucun', 'Taille des sous-titres', 'Moyenne', 'Couleur des sous-titres', 'Blanc', 'Vitesse', 'Normale', "Format de l'image", 'Adapter', 'Fermer']
+toucher Sous-titres True
+toucher Français True
+toucher Taille True
+capture 08-taille ['Taille des sous-titres', 'Petite', 'Moyenne', 'Choisi', 'Grande', 'Très grande', 'Retour', 'Fermer']
+toucher Très grande True
+toucher Couleur True
+capture 09-couleur ['Couleur des sous-titres', 'Blanc', 'Choisi', 'Jaune', 'Vert', 'Bleu clair', 'Retour', 'Fermer']
+toucher Jaune True
+toucher Vitesse True
+capture 10-vitesse ['Vitesse de lecture', '0,5x', '0,75x', 'Normale', 'Choisi', '1,25x', '1,5x', '2x', 'Retour', 'Fermer']
+toucher 1,5x True
+toucher Format True
+capture 11-format ["Format de l'image", 'Adapter', 'Image entière, bords noirs si besoin', 'Zoom', "Remplit l'écran en coupant les bords", 'Remplir', "Remplit l'écran en étirant l'image", 'Retour', 'Fermer']
+toucher Zoom True
+capture 12-menu-final ['Réglages', 'Langue', 'Piste 1', 'Sous-titres', 'Aucun', 'Taille des sous-titres', 'Très grande', 'Couleur des sous-titres', 'Jaune', 'Vitesse', '1,5x', "Format de l'image", 'Zoom', 'Fermer']
+toucher Fermer True
+capture 13-video-sous-titres-jaunes ['Essai vlc.avi', 'Réglages']
+capture 14-retour-liste ['‹ Retour', 'Vidéos essai', '?', 'Tout lire ici à la suite', 'Envoyer sur la télé', "Appui long sur un film ou un dossier : indiquer l'âge conseillé (pastille de couleur).", 'Essai externe.mp4', 'Essai japonais.mkv', '1 Mo', 'Essai langues.mkv', '1 Mo', 'Essai vlc.avi', '2 Mo', 'Essai.mp4']
+toucher Essai langues True
+capture 15-menu-retenu ['Réglages', 'Langue', 'Anglais', 'Sous-titres', 'Français', 'Taille des sous-titres', 'Très grande', 'Couleur des sous-titres', 'Jaune', 'Vitesse', 'Normale', "Format de l'image", 'Zoom', 'Fermer']
+toucher Sous-titres True
+capture 16-sous-titres-2 ['Sous-titres', 'Aucun', 'Français', 'Choisi', 'Anglais', 'Retour', 'Fermer']
+toucher Anglais True
+toucher Langue True
+capture 17-langues-2 ['Langue de la vidéo', 'Français', 'Anglais', 'Choisi', 'Retour', 'Fermer']
+toucher Français True
+capture 18-menu-francais ['Réglages', 'Langue', 'Anglais', 'Sous-titres', 'Anglais', 'Taille des sous-titres', 'Très grande', 'Couleur des sous-titres', 'Jaune', 'Vitesse', 'Normale', "Format de l'image", 'Zoom', 'Fermer']
+capture 19-focus-telecommande ['Réglages', 'Langue', 'Anglais', 'Sous-titres', 'Anglais', 'Taille des sous-titres', 'Très grande', 'Couleur des sous-titres', 'Jaune', 'Vitesse', 'Normale', "Format de l'image", 'Zoom', 'Fermer']
+capture 20-focus-sous-menu ['Sous-titres', 'Aucun', 'Français', 'Anglais', 'Choisi', 'Retour', 'Fermer']
+capture 21-retour-ferme-le-sous-menu ['Réglages', 'Langue', 'Français', 'Sous-titres', 'Anglais', 'Taille des sous-titres', 'Très grande', 'Couleur des sous-titres', 'Jaune', 'Vitesse', 'Normale', "Format de l'image", 'Zoom', 'Fermer']
+capture 22-retour-ferme-le-menu ['Essai vlc.avi', 'Réglages']
+capture 23-retour-liste ['‹ Retour', 'Vidéos essai', '?', 'Tout lire ici à la suite', 'Envoyer sur la télé', "Appui long sur un film ou un dossier : indiquer l'âge conseillé (pastille de couleur).", 'Essai externe.mp4', 'Essai japonais.mkv', '1 Mo', 'Essai langues.mkv', '1 Mo', 'Essai vlc.avi', '2 Mo', 'Essai.mp4']
+toucher Essai externe True
+capture 24-menu-externe ['Réglages', 'Langue', 'Piste 1', 'Sous-titres', 'Aucun', 'Taille des sous-titres', 'Très grande', 'Couleur des sous-titres', 'Jaune', 'Vitesse', 'Normale', "Format de l'image", 'Zoom', 'Fermer']
+toucher Sous-titres True
+capture 25-sous-titres-fichier ['Sous-titres', 'Aucun', 'Choisi', 'Français (fichier)', 'Retour', 'Fermer']
+toucher Français True
+toucher Fermer True
+capture 26-video-fichier ['Essai externe.mp4', 'Bonjour : sous-titres en fichier à côté']
+toucher Essai vlc True
+capture 27-vlc ['Essai vlc.avi', 'Réglages']
+toucher Réglages True
+capture 28-vlc-menu ['Réglages', 'Langue', 'Piste 1', 'Sous-titres', 'Aucun', 'Taille des sous-titres', 'Très grande', 'Couleur des sous-titres', 'Jaune', 'Vitesse', 'Normale', "Format de l'image", 'Zoom', 'Fermer']
+toucher Langue True
+capture 29-vlc-langues ['Langue de la vidéo', 'Piste 1', 'Piste 2', 'Retour', 'Fermer']
+toucher Piste 2 True
+capture 30-vlc-menu-apres ['Réglages', 'Langue', 'Piste 2', 'Sous-titres', 'Aucun', 'Taille des sous-titres', 'Très grande', 'Couleur des sous-titres', 'Jaune', 'Vitesse', 'Normale', "Format de l'image", 'Zoom', 'Fermer']
+toucher Vitesse True
+toucher 0,5x True
+toucher Format True
+toucher Remplir True
+toucher Fermer True
+capture 31-vlc-video ['Essai.mp4', 'Réglages']
+capture 32-fin ['‹ Retour', 'Vidéos essai', '?', 'Tout lire ici à la suite', 'Envoyer sur la télé', "Appui long sur un film ou un dossier : indiquer l'âge conseillé (pastille de couleur).", 'Essai externe.mp4', 'Essai japonais.mkv', '1 Mo', 'Essai langues.mkv', '1 Mo', 'Essai vlc.avi', '2 Mo', 'Essai.mp4']
