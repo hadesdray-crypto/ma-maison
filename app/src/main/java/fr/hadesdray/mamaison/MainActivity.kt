@@ -536,7 +536,7 @@ class MainActivity : Activity() {
                 GRANDE -> if (large >= 900) 4 else 2
                 MOYENNE -> if (large >= 900) 5 else if (large >= 600) 3 else 2
                 else -> if (large >= 900) 8 else if (large >= 600) 6 else 4
-            }
+            }.let { if (f == PETITE) maxOf(4, minOf(it, vues.size)) else it }
             // Sur un écran étroit, une grande tuile toute seule prend toute la largeur
             if (f == GRANDE && parRangee == 2 && vues.size % 2 == 1) {
                 rangees(parent, vues.subList(0, 1), 1)

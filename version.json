@@ -1,14 +1,14 @@
 {
-  "code": 10,
-  "nom": "1.7.2",
+  "code": 11,
+  "nom": "1.8.0",
   "apk": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison.apk",
   "changements": [
-    "Vidéos et musiques du PC plus fluides : grosse réserve d'avance (jusqu'à 2 minutes) pour tenir pendant les petites coupures d'Internet.",
-    "Si la connexion coupe plus longtemps, la vidéo reprend toute seule au même endroit (plusieurs essais) au lieu de s'arrêter ou de passer à la suivante.",
-    "Lecteur tous formats : les vieux films (.avi, .wmv, .flv, .mpg) et les sons de cinéma (AC3, DTS) se lisent maintenant ; à la télécommande : OK = lecture/pause, gauche/droite = 10 secondes.",
-    "Sur la télé : Ma Maison installe YouPub TV toute seule (tu valides juste l'installation), et YouPub TV s'active sans code.",
-    "Télé : Ma Maison sur l'accueil de la box, tout à la télécommande, tuile YouPub après Jeux.",
-    "Nouvelle tuile Jeux : GeForce Now, Xbox (jeux dans le nuage), Amazon Luna et Boosteroid en un seul endroit. Si l'appli du service est installée elle s'ouvre, sinon la version navigateur."
+    "Nouvel accueil : des tuiles de trois tailles. Les grandes en haut (Vidéos, Jeux, Musique, Photos), les moyennes au milieu, les petites en bas.",
+    "Tu choisis toi-même : appui long sur une tuile pour changer sa taille, la déplacer, ou tout remettre comme au départ.",
+    "Nouvelle tuile « Maison » : prises, volets, capteurs, consommation, ambiances et plannings y sont rangés. Tu peux en remettre sur l'accueil par appui long.",
+    "Dossiers de films, musiques et photos beaucoup plus rapides : la liste s'ouvre tout de suite, même avec des centaines de fichiers.",
+    "Un dossier déjà ouvert se réaffiche instantanément, et la liste revient là où tu l'avais laissée.",
+    "Passage en douceur d'une page à l'autre, et chaque tuile réagit sous le doigt."
   ],
   "apk_arm64-v8a": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison-arm64.apk",
   "apk_armeabi-v7a": "https://raw.githubusercontent.com/hadesdray-crypto/ma-maison/main/ma-maison-arm32.apk"

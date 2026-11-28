@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const VERSION = 1;
+const VERSION = 2;
 const PORT = 8790;
 const DOSSIER = __dirname;
 const FICHIER_REGLAGES = path.join(DOSSIER, 'reglages.json');
@@ -118,6 +118,11 @@ function fichier(req, res, chemin) {
   fs.stat(chemin, (err, st) => {
     if (err || !st.isFile()) { res.writeHead(404); return res.end(); }
     const type = TYPES[path.extname(chemin).toLowerCase()] || 'application/octet-stream';
+    // Fichier vide : on répond tout de suite (sinon la lecture plantait tout le serveur)
+    if (st.size === 0) {
+      res.writeHead(200, { 'Content-Type': type, 'Content-Length': 0 });
+      return res.end();
+    }
     const plage = req.headers.range;
     let debut = 0;
     let fin = st.size - 1;

@@ -41,14 +41,23 @@ def focus():
     return t.group(1) if t else ""
 def touche(code): adb("shell", "input", "keyevent", str(code)); time.sleep(0.7)
 def aller(texte):
-    # Télécommande : parcourt l'écran rangée par rangée jusqu'à ce que l'élément choisi soit le bon
-    for _ in range(14):
-        if focus().startswith(texte): return True
-        for _ in range(8):
-            touche(22)
-            if focus().startswith(texte): return True
-        for _ in range(8): touche(21)
-        touche(20)
+    # Télécommande : parcourt chaque rangée vers la droite, puis descend ; repart du haut une fois si besoin
+    for tour in range(2):
+        precedent_bas = None
+        for _ in range(16):
+            f = focus()
+            if f.startswith(texte): return True
+            vu = f
+            for _ in range(8):
+                touche(22); f = focus()
+                if f.startswith(texte): return True
+                if f == vu: break
+                vu = f
+            touche(20); f = focus()
+            if f.startswith(texte): return True
+            if f == precedent_bas: break
+            precedent_bas = f
+        for _ in range(25): touche(19)
     print("INATTEIGNABLE à la télécommande :", texte); return False
 for e in sys.argv[1:]:
     if e.startswith("tapx:"): print("toucher exact", e[5:], toucher(e[5:], exact=True))
