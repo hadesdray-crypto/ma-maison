@@ -443,7 +443,9 @@ class MainActivity : Activity() {
         val parler = bouton(c, "Parler à la maison") { ecouter() }
         parler.contentDescription = "Donner un ordre à la voix"
 
-        mosaique(c, cases().filter { lieu(it) == "accueil" })
+        val premiere = mosaique(c, cases().filter { lieu(it) == "accueil" })
+        // Télé : la télécommande part de la première grande tuile (pas du petit « ? » en haut à droite)
+        if (Tv.isTv(this)) premiere?.let { v -> v.post { v.requestFocus() } }
         texte(c, "Appui long sur une tuile : changer sa taille ou sa place.", 12f)
 
         enFond({
@@ -518,7 +520,8 @@ class MainActivity : Activity() {
     }
 
     /** Affiche les tuiles : les grandes d'abord, puis les moyennes, puis les petites. */
-    private fun mosaique(parent: LinearLayout, liste: List<Case>) {
+    private fun mosaique(parent: LinearLayout, liste: List<Case>): View? {
+        var premiere: View? = null
         val toutes = cases()
         val dansMaison = toutes.filter { lieu(it) == "maison" }
         val large = resources.configuration.screenWidthDp
@@ -537,12 +540,14 @@ class MainActivity : Activity() {
                 MOYENNE -> if (large >= 900) 5 else if (large >= 600) 3 else 2
                 else -> if (large >= 900) 8 else if (large >= 600) 6 else 4
             }.let { if (f == PETITE) maxOf(4, minOf(it, vues.size)) else it }
+            if (premiere == null) premiere = vues.firstOrNull()
             // Sur un écran étroit, une grande tuile toute seule prend toute la largeur
             if (f == GRANDE && parRangee == 2 && vues.size % 2 == 1) {
                 rangees(parent, vues.subList(0, 1), 1)
                 rangees(parent, vues.subList(1, vues.size), 2)
             } else rangees(parent, vues, parRangee)
         }
+        return premiere
     }
 
     /** Appui long sur une tuile : taille, place, rangement dans la tuile « Maison ». */
