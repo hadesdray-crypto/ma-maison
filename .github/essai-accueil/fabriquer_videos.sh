@@ -5,12 +5,12 @@
 #  - Essai externe.mp4 + Essai externe.fr.srt : un seul son, sous-titres en fichier à côté
 #  - Essai vlc.avi : vieux format (lecteur VLC), deux sons
 cd "$1" || exit 0
-printf '1\n00:00:00,500 --> 00:01:00,000\nBonjour : sous-titres français intégrés\n\n' > fr.srt
-printf '1\n00:00:00,500 --> 00:01:00,000\nHello: embedded English subtitles\n\n' > en.srt
-printf '1\n00:00:00,500 --> 00:01:00,000\nBonjour : sous-titres en fichier à côté\n\n' > "Essai externe.fr.srt"
-V="-f lavfi -i testsrc=duration=60:size=640x360:rate=25"
-A1="-f lavfi -i sine=frequency=440:duration=60"
-A2="-f lavfi -i sine=frequency=880:duration=60"
+printf '1\n00:00:00,500 --> 00:05:00,000\nBonjour : sous-titres français intégrés\n\n' > fr.srt
+printf '1\n00:00:00,500 --> 00:05:00,000\nHello: embedded English subtitles\n\n' > en.srt
+printf '1\n00:00:00,500 --> 00:05:00,000\nBonjour : sous-titres en fichier à côté\n\n' > "Essai externe.fr.srt"
+V="-f lavfi -i testsrc=duration=300:size=640x360:rate=25"
+A1="-f lavfi -i sine=frequency=440:duration=300"
+A2="-f lavfi -i sine=frequency=880:duration=300"
 ffmpeg -loglevel error -y $V $A1 $A2 -i fr.srt -map 0:v -map 1:a -map 2:a -map 3:0 \
   -c:v libx264 -preset veryfast -pix_fmt yuv420p -c:a aac -c:s srt \
   -metadata:s:a:0 language=jpn -metadata:s:a:1 language=eng -metadata:s:s:0 language=fra "Essai japonais.mkv" || true
