@@ -11,8 +11,8 @@ android {
         applicationId = "fr.hadesdray.mamaison"
         minSdk = 24
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.8.1"
+        versionCode = 13
+        versionName = "1.9.0"
     }
 
     // Lecteur VLC lourd : un fichier par type de processeur (chaque appareil ne télécharge que le sien)
@@ -60,4 +60,6 @@ dependencies {
     implementation("com.google.android.exoplayer:exoplayer-rtsp:2.19.1")
     // Lecteur de secours tous formats (gratuit) pour les vidéos qu'ExoPlayer ne lit pas
     implementation("org.videolan.android:libvlc-all:3.6.0")
+    // Partages Windows (gratuit, libre)
+    implementation("eu.agno3.jcifs:jcifs-ng:2.1.10")
 }

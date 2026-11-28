@@ -77,6 +77,9 @@ class MainActivity : Activity() {
     private lateinit var dyson: Dyson
     private lateinit var diffusion: Diffusion
     private lateinit var miseAJour: MiseAJour
+    private lateinit var reseau: ReseauMaison
+    private lateinit var partages: Partages
+    @Volatile private var dernierScan: List<AppareilReseau>? = null
     private val prefs by lazy { getSharedPreferences("maison", Context.MODE_PRIVATE) }
     private var minuteur: Runnable? = null
     private var appareilsCache: List<Appareil>? = null
@@ -109,6 +112,11 @@ class MainActivity : Activity() {
         dyson = Dyson(this)
         diffusion = Diffusion(this)
         miseAJour = MiseAJour(this)
+        reseau = ReseauMaison(this)
+        partages = Partages(this)
+        // Petit serveur de l'appli (relais des partages Windows, partage de ce téléphone)
+        Relais.demarrer(this)
+        if (Relais.partageActif(this)) demarrerPartage()
         demanderAccesUneFois()
         ouvrir("Accueil", ::accueil, racine = true)
         Tv.attach(this)   // télé : flèches de la télécommande, cadre blanc sur la tuile choisie
@@ -488,6 +496,8 @@ class MainActivity : Activity() {
                     else -> "Appareils de la maison : ${l.size} reliés"
                 }
             )
+            val pcs = reseau.connus().filter { it.genre == "pc" }
+            if (pcs.isNotEmpty()) parties.add("Ordinateurs : vérification…")
             val temp = l?.firstOrNull { it.genre == "temperature" && it.etat.toDoubleOrNull() != null }
             if (temp != null) parties.add("Température : ${temp.etat} ${temp.unite}")
             resume.text = parties.joinToString("\n")
@@ -495,12 +505,26 @@ class MainActivity : Activity() {
             etatPc = if (p != null) 1 else 0
             etatAppareils = if (l != null) 1 else 0
             majVoyants()
+            // Chaque ordinateur déjà vu sur le Wi-Fi : allumé ou éteint
+            if (pcs.isNotEmpty()) enFond({ pcs.map { it.nom to reseau.repond(it) } }) { etats ->
+                val ligne = "Ordinateurs : " + etats.joinToString(" · ") { (n, ok) -> "$n " + (if (ok) "allumé" else "éteint") }
+                resume.text = resume.text.toString().replace("Ordinateurs : vérification…", ligne)
+            }
             if (l != null && appareilsCache == null) {
                 appareilsCache = l
                 accueil()
             } else if (l != null) appareilsCache = l
         }
     }
+
+    private fun infoReseau(): String {
+        val l = dernierScan ?: reseau.connus()
+        if (l.isEmpty()) return "Tout ce qui est sur le Wi-Fi"
+        val n = l.count { it.present }
+        return if (dernierScan == null) "${l.size} appareil(s) connu(s)" else "$n appareil(s) connecté(s)"
+    }
+
+    private fun etatReseau(): Int = if (etatPc == 0 && dernierScan == null) -1 else if (reseau.monIp() == null) 0 else 1
 
     private fun majVoyants() {
         val toutes = cases()
@@ -543,6 +567,7 @@ class MainActivity : Activity() {
             Case("youpub", "YouPub", "YouPub", "Vidéos, musique et télé sans pub", MOYENNE, "accueil") { ouvrirYouPub() },
             Case("cameras", "Caméras", "Caméras", compte(setOf("camera")), MOYENNE, "accueil") { ouvrir("Caméras", { cameras() }) }.avec { etatMaison() },
             Case("dyson", "Dyson", "Dyson", if (dyson.relie) "${dyson.machines.size} appareil(s) : ventilateur, aspirateur" else "Relier ton compte Dyson", MOYENNE, "accueil") { ouvrir("Dyson", { dysonAccueil() }) }.avec { if (dyson.relie) 1 else 0 },
+            Case("reseau", "Réseau", "Réseau", infoReseau(), MOYENNE, "accueil") { ouvrir("Réseau", { ecranReseau() }) }.avec { etatReseau() },
             Case("maison", "Maison", "Maison", "", MOYENNE, "accueil") { ouvrir("Maison", { groupeMaison() }) }.avec { etatMaison() },
             Case("prises", "Prises", "Prises", compte(setOf("switch"), true), MOYENNE, "maison") { ouvrir("Prises", { appareilsDe("Prises", setOf("switch"), "prise") }) }.avec { etatMaison() },
             Case("volets", "Volets et portes", "Volets", compte(setOf("cover", "lock")), MOYENNE, "maison") { ouvrir("Volets", { appareilsDe("Volets et portes", setOf("cover", "lock"), "volet ou porte") }) }.avec { etatMaison() },
@@ -705,6 +730,7 @@ class MainActivity : Activity() {
                 }
                 grille(c, tuiles)
             }
+            sourcesReseau(c, type)
             bouton(c, "Vérifier de nouveau") { dossiersConnus.remove(cle); rafraichir() }
         }
         if (connu != null) montrer(connu.texte) else attente(c, "Connexion au PC et réveil des disques…")
@@ -722,6 +748,325 @@ class MainActivity : Activity() {
         }
     }
 
+    // ---------- le réseau Wi-Fi de la maison ----------
+
+    private val GENRES = linkedMapOf(
+        "pc" to "Ordinateurs", "telephone" to "Téléphones et tablettes (avec Ma Maison)", "serveur" to "Serveurs de vidéos et musique",
+        "freebox" to "Freebox", "tele" to "Télés", "enceinte" to "Enceintes", "camera" to "Caméras", "imprimante" to "Imprimantes",
+        "appareil" to "Autres appareils"
+    )
+
+    /** En-tête d'un groupe avec voyant. */
+    private fun entete(c: LinearLayout, titre: String, etat: Int?, droite: String = "") {
+        val tete = LinearLayout(this)
+        tete.orientation = LinearLayout.HORIZONTAL
+        tete.gravity = Gravity.CENTER_VERTICAL
+        tete.setPadding(dp(6), dp(16), dp(6), dp(4))
+        if (etat != null) {
+            val v = View(this)
+            colorerVoyant(v, etat)
+            tete.addView(v, LinearLayout.LayoutParams(dp(12), dp(12)))
+        }
+        val n = TextView(this)
+        n.text = titre
+        n.setTextColor(cTexte)
+        n.textSize = taille(17f)
+        n.setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+        n.setPadding(dp(10), 0, dp(10), 0)
+        tete.addView(n, LinearLayout.LayoutParams(0, -2, 1f))
+        if (droite.isNotEmpty()) {
+            val e = TextView(this)
+            e.text = droite
+            e.setTextColor(if (etat == 1) cVert else if (etat == 0) cRouge else cGris)
+            e.textSize = taille(13f)
+            tete.addView(e)
+        }
+        c.addView(tete)
+    }
+
+    private fun ecranReseau() {
+        val c = page("Réseau", "Tout ce qui est branché sur le Wi-Fi de la maison")
+        fun montrer(l: List<AppareilReseau>, enCours: Boolean) {
+            c.removeAllViews()
+            if (enCours) attente(c, "Recherche sur tout le Wi-Fi… (environ 15 secondes)")
+            if (l.isEmpty() && !enCours) texte(c, "Aucun appareil trouvé. Ce téléphone est-il bien sur le Wi-Fi de la maison ?", 16f, cTexte)
+            for ((g, titre) in GENRES) {
+                val groupe = l.filter { it.genre == g }
+                if (groupe.isEmpty()) continue
+                val n = groupe.count { it.present }
+                entete(c, titre, if (n > 0) 1 else 0, "$n / ${groupe.size} connecté(s)")
+                grille(c, groupe.map { a ->
+                    val info = (if (a.present) "Connecté" else "Non connecté") + " · " + a.ip + (if (a.marque.isNotEmpty()) " · " + a.marque else "") + "\n" + capacite(a)
+                    val t = tuile(a.nom, info, voyant = if (a.present) 1 else 0) { ouvrirAppareil(a) }
+                    if (!a.present) t.alpha = 0.55f
+                    t
+                })
+            }
+            if (!enCours) {
+                bouton(c, "Rechercher de nouveau") { dernierScan = null; rafraichir() }
+                if (l.any { !it.present }) bouton(c, "Oublier les appareils non connectés") {
+                    prefs.edit().putString("reseau_connus", org.json.JSONArray(l.filter { it.present }.map { it.json() }).toString()).apply()
+                    dernierScan = l.filter { it.present }
+                    rafraichir()
+                }
+                texte(c, "Un téléphone ou une tablette n'apparaît ici que si Ma Maison y est installée et que « Partager ce téléphone » y est activé (dans Réglages). Sans ça, Android ne laisse rien voir.", 13f)
+                texte(c, "Les appareils qui ne partagent rien (prises, ampoules, la plupart des télés) apparaissent avec leur voyant, mais il n'y a rien à ouvrir dedans.", 13f)
+            }
+        }
+        val deja = dernierScan
+        if (deja != null) { montrer(deja, false); return }
+        montrer(reseau.trier(reseau.connus().onEach { it.present = false }), true)
+        enFond({ reseau.chercher() }) { l -> dernierScan = l; montrer(l, false) }
+    }
+
+    /** Ce qu'on peut faire avec l'appareil, en une ligne. */
+    private fun capacite(a: AppareilReseau): String = when {
+        a.genre == "telephone" -> "Ses photos, vidéos et musiques (avec son code)"
+        a.dlna.isNotEmpty() -> "Ses vidéos, photos et musiques"
+        a.genre == "pc" && (445 in a.ports || 139 in a.ports) -> "Ses dossiers partagés" + (if (8790 in a.ports) " + Ma Maison" else "")
+        a.genre == "pc" && 8790 in a.ports -> "PC de Ma Maison"
+        a.genre == "camera" -> "Image en direct (avec son identifiant)"
+        8009 in a.ports || a.genre == "enceinte" -> "Reçoit ce que tu envoies (bouton « Envoyer »)"
+        else -> "Sur le Wi-Fi, ne partage rien"
+    }
+
+    private fun ouvrirAppareil(a: AppareilReseau, type: String = "tout") {
+        if (!a.present) { message("${a.nom} n'est pas connecté en ce moment (éteint, ou hors du Wi-Fi). Touche « Rechercher de nouveau » quand il est allumé."); return }
+        // Un même appareil peut avoir plusieurs choses à ouvrir (ex. un PC avec partages et serveur de médias) : on propose
+        val choix = ArrayList<Pair<String, () -> Unit>>()
+        if (a.dlna.isNotEmpty()) choix.add("Serveur de vidéos et musique" to { ouvrir(a.nom, { dossierDlna(a, type, a.nom, "0") }) })
+        if (445 in a.ports || 139 in a.ports) choix.add("Dossiers partagés" to { ouvrir(a.nom, { partagesPc(a, type) }) })
+        if (8790 in a.ports) choix.add("Disques du PC (Ma Maison)" to { ouvrir("Vidéos", { medias(if (type == "tout") "videos" else type, "Vidéos") }) })
+        if (a.genre != "telephone" && choix.size > 1) {
+            AlertDialog.Builder(this).setTitle(a.nom)
+                .setItems(choix.map { it.first }.toTypedArray()) { _, w -> choix[w].second() }
+                .setNegativeButton("Annuler", null).show()
+            return
+        }
+        when {
+            a.genre == "telephone" -> ouvrir(a.nom, { telephoneDistant(a, type, "") })
+            a.dlna.isNotEmpty() -> ouvrir(a.nom, { dossierDlna(a, type, a.nom, "0") })
+            a.genre == "pc" && (445 in a.ports || 139 in a.ports) -> ouvrir(a.nom, { partagesPc(a, type) })
+            a.genre == "pc" && 8790 in a.ports -> ouvrir("Vidéos", { medias("videos", "Vidéos") })
+            a.genre == "camera" -> ouvrir(a.nom, { cameraReseau(a) })
+            8009 in a.ports || a.genre == "enceinte" -> message("${a.nom} reçoit ce que tu envoies : ouvre Vidéos, Musique ou Photos, puis « Envoyer ».")
+            else -> message("${a.nom} est bien sur le Wi-Fi, mais il ne partage aucun fichier.")
+        }
+    }
+
+    /** Dans Vidéos, Photos et Musique : les autres sources du réseau. */
+    private fun sourcesReseau(c: LinearLayout, type: String) {
+        val l = (dernierScan ?: reseau.connus()).filter { it.dlna.isNotEmpty() || it.genre == "telephone" || (it.genre == "pc" && (445 in it.ports || 139 in it.ports)) }
+        if (l.isEmpty()) {
+            entete(c, "Sur le réseau", null)
+            texte(c, "Rien d'autre pour l'instant. Ouvre la tuile Réseau pour chercher les autres PC, la Freebox, les serveurs et les téléphones.", 13f)
+            return
+        }
+        entete(c, "Sur le réseau", if (l.any { it.present || dernierScan == null }) 1 else 0)
+        val vues = l.map { a ->
+            val t = tuile(a.nom, capacite(a), voyant = if (dernierScan == null) -1 else if (a.present) 1 else 0) {
+                if (dernierScan == null) a.present = true
+                ouvrirAppareil(a, type)
+            }
+            if (dernierScan != null && !a.present) t.alpha = 0.55f
+            t
+        }
+        grille(c, vues)
+        // Vérification rapide en fond (sans relancer toute la recherche)
+        enFond({ l.map { reseau.repond(it) } }) { etats ->
+            l.forEachIndexed { i, a -> a.present = etats[i] }
+            vues.forEachIndexed { i, v ->
+                v.findViewWithTag<View>("voyant")?.let { colorerVoyant(it, if (etats[i]) 1 else 0) }
+                v.alpha = if (etats[i]) 1f else 0.55f
+            }
+        }
+    }
+
+    /** Dossier générique (serveur de médias, partage Windows, téléphone) : mêmes listes rapides que pour le PC. */
+    private fun dossierSource(type: String, nom: String, cle: String, charger: () -> String?, erreur: String,
+                              fabriqueLien: (String) -> String, sous: (String, String) -> Unit) {
+        val c = page(nom, defilant = false)
+        val connu = dossiersConnus[cle]
+        if (connu != null) remplirDossier(c, type, cle, connu.texte, fabriqueLien, sous) else attente(c, "Lecture…")
+        enFond({ try { charger() } catch (e: Throwable) { null } }) { t ->
+            if (t == null) {
+                c.removeAllViews()
+                texte(c, erreur, 16f, cTexte)
+                bouton(c, "Réessayer") { rafraichir() }
+                return@enFond
+            }
+            if (connu?.texte == t) return@enFond
+            dossiersConnus[cle] = Connu("", t)
+            c.removeAllViews()
+            remplirDossier(c, type, cle, t, fabriqueLien, sous)
+        }
+    }
+
+    private fun garderType(type: String, nom: String, mime: String): Boolean {
+        if (type == "tout") return true
+        val x = nom.substringAfterLast('.', "").lowercase()
+        if (x in Partages.extensions(type)) return true
+        return when (type) { "videos" -> mime.startsWith("video"); "photos" -> mime.startsWith("image"); "musique" -> mime.startsWith("audio"); else -> true }
+    }
+
+    // ---- serveurs de médias (Freebox, Jellyfin…) ----
+
+    private fun dossierDlna(a: AppareilReseau, type: String, nom: String, objet: String) {
+        dossierSource(type, nom, "dlna|${a.dlna}|$objet|$type", {
+            val l = Dlna.parcourir(a.dlna, objet) ?: return@dossierSource null
+            val d = org.json.JSONArray(); val f = org.json.JSONArray()
+            for (x in l) {
+                if (x.dossier) d.put(JSONObject().put("nom", x.titre).put("chemin", x.id))
+                else if (garderType(type, x.titre, x.type)) f.put(JSONObject().put("nom", x.titre).put("chemin", x.lien).put("taille", x.taille))
+            }
+            JSONObject().put("dossiers", d).put("fichiers", f).toString()
+        }, "${a.nom} ne répond pas (éteint, ou serveur de médias arrêté).", { it }) { n, id -> dossierDlna(a, type, n, id) }
+    }
+
+    // ---- partages Windows ----
+
+    private fun partagesPc(a: AppareilReseau, type: String) {
+        val c = page(a.nom, "Dossiers partagés de ce PC")
+        attente(c, "Connexion au PC…")
+        enFond({ try { Pair(partages.partages(a.ip), null) } catch (e: Throwable) { Pair(null, partages.raison(e)) } }) { (l, err) ->
+            c.removeAllViews()
+            if (l == null) {
+                texte(c, "Connexion refusée : $err.", 16f, cTexte)
+                texte(c, "Entre une fois l'identifiant et le mot de passe Windows de ce PC (ceux qu'on tape pour ouvrir la session). Ils restent seulement sur ce téléphone.", 14f)
+                val u = champ(c, "Identifiant Windows (ou adresse du compte Microsoft)", partages.identifiant(a.ip)?.first ?: "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS)
+                val m = champ(c, "Mot de passe Windows", "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+                bouton(c, "Se connecter") { partages.retenir(a.ip, u.text.toString().trim(), m.text.toString()); rafraichir() }
+                bouton(c, "Essayer sans mot de passe") { partages.retenir(a.ip, "", ""); rafraichir() }
+                return@enFond
+            }
+            if (l.isEmpty()) texte(c, "Ce PC ne partage aucun dossier. Sur le PC : clic droit sur un dossier > Propriétés > Partage.", 15f, cTexte)
+            grille(c, l.map { p -> tuile(p.nom, "Dossier partagé") { ouvrir("${a.nom}/${p.nom}", { dossierSmb(type, p.nom, p.chemin) }) } })
+            bouton(c, "Changer d'identifiant Windows") { partages.oublier(a.ip); partages.retenir(a.ip, "?", "?"); rafraichir() }
+        }
+    }
+
+    private fun dossierSmb(type: String, nom: String, chemin: String) {
+        val ip = reseau.monIp()
+        dossierSource(type, nom, "smb|$chemin|$type", {
+            val l = partages.lister(chemin, Partages.extensions(type))
+            val d = org.json.JSONArray(); val f = org.json.JSONArray()
+            for (x in l) if (x.dossier) d.put(JSONObject().put("nom", x.nom).put("chemin", x.chemin))
+                         else f.put(JSONObject().put("nom", x.nom).put("chemin", x.chemin).put("taille", x.taille))
+            JSONObject().put("dossiers", d).put("fichiers", f).toString()
+        }, "Ce dossier partagé ne répond pas (PC éteint, ou accès refusé).", { Relais.lienSmb(this, ip, it) }) { n, ch -> dossierSmb(type, n, ch) }
+    }
+
+    // ---- téléphones avec Ma Maison ----
+
+    private fun telephoneDistant(a: AppareilReseau, type: String, dossierChoisi: String) {
+        val code = prefs.getString("code_tel_${a.cle}", "") ?: ""
+        if (code.isEmpty()) {
+            val c = page(a.nom)
+            texte(c, "Ce téléphone partage ses photos et vidéos avec un code. Le code s'affiche sur ce téléphone, dans Ma Maison > Réglages > Partager ce téléphone.", 15f, cTexte)
+            val e = champ(c, "Code du téléphone (6 chiffres)", "", InputType.TYPE_CLASS_NUMBER)
+            bouton(c, "Valider") { prefs.edit().putString("code_tel_${a.cle}", e.text.toString().trim()).apply(); rafraichir() }
+            return
+        }
+        val types = if (type == "tout") listOf("photos", "videos", "musique") else listOf(type)
+        if (type == "tout") {
+            val c = page(a.nom)
+            grille(c, listOf(tuile("Photos", "Photos du téléphone") { ouvrir("${a.nom}/Photos", { telephoneDistant(a, "photos", "") }) },
+                tuile("Vidéos", "Vidéos du téléphone") { ouvrir("${a.nom}/Vidéos", { telephoneDistant(a, "videos", "") }) },
+                tuile("Musique", "Musiques du téléphone") { ouvrir("${a.nom}/Musique", { telephoneDistant(a, "musique", "") }) }))
+            bouton(c, "Changer le code") { prefs.edit().remove("code_tel_${a.cle}").apply(); rafraichir() }
+            return
+        }
+        val base = "http://${a.ip}:${Relais.PORT}/partage"
+        dossierSource(type, if (dossierChoisi.isEmpty()) a.nom else dossierChoisi, "tel|${a.ip}|$type|$dossierChoisi", {
+            val t = Reseau.lire("$base/liste?type=${types[0]}&code=" + Reseau.encode(code), 20000)
+            if (t == null) {
+                // Code refusé ? on le redemandera
+                if (Reseau.lire("$base/ping", 3000) != null) prefs.edit().remove("code_tel_${a.cle}").apply()
+                return@dossierSource null
+            }
+            val o = JSONObject(t)
+            val l = o.optJSONArray("fichiers") ?: org.json.JSONArray()
+            val d = org.json.JSONArray(); val f = org.json.JSONArray()
+            val vus = LinkedHashSet<String>()
+            for (i in 0 until l.length()) {
+                val x = l.getJSONObject(i)
+                val dos = x.optString("dossier")
+                if (dossierChoisi.isEmpty()) { if (vus.add(dos)) d.put(JSONObject().put("nom", dos).put("chemin", dos)) }
+                else if (dos == dossierChoisi) f.put(JSONObject().put("nom", x.optString("nom")).put("chemin", x.optLong("id").toString()).put("taille", x.optLong("taille")))
+            }
+            JSONObject().put("dossiers", d).put("fichiers", f).toString()
+        }, "Ce téléphone ne répond pas, ou son code a changé (redemandé à la prochaine ouverture). Vérifie que son partage est activé.",
+            { id -> "$base/fichier?type=${types[0]}&id=$id&code=" + Reseau.encode(code) }) { n, _ -> telephoneDistant(a, type, n) }
+    }
+
+    // ---- caméras du réseau ----
+
+    private fun cameraReseau(a: AppareilReseau) {
+        val c = page(a.nom, "Caméra du réseau")
+        val u0 = prefs.getString("cam_u_${a.ip}", null)
+        if (u0 == null) {
+            texte(c, "Entre une fois l'identifiant de la caméra (souvent sur l'étiquette, ou celui de son appli). Il reste seulement sur ce téléphone.", 15f, cTexte)
+            val u = champ(c, "Identifiant de la caméra (souvent admin)", "admin", InputType.TYPE_CLASS_TEXT)
+            val m = champ(c, "Mot de passe de la caméra", "", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+            bouton(c, "Voir la caméra") { prefs.edit().putString("cam_u_${a.ip}", u.text.toString().trim()).putString("cam_p_${a.ip}", m.text.toString()).apply(); rafraichir() }
+            return
+        }
+        attente(c, "Recherche du flux vidéo de la caméra…")
+        val port = if (554 in a.ports) 554 else (a.ports.firstOrNull { it == 8554 } ?: 554)
+        enFond({ Rtsp.trouver(a.ip, port, u0, prefs.getString("cam_p_${a.ip}", "") ?: "") }) { r ->
+            c.removeAllViews()
+            if (r.lien != null) {
+                texte(c, "Flux trouvé.", 15f, cVert)
+                bouton(c, "Voir en direct") { lire(arrayOf(r.lien), arrayOf(a.nom), 0, false) }
+                lire(arrayOf(r.lien), arrayOf(a.nom), 0, false)
+            } else {
+                texte(c, "Impossible d'afficher la caméra : ${r.raison}.", 16f, cTexte)
+                bouton(c, "Changer l'identifiant") { prefs.edit().remove("cam_u_${a.ip}").remove("cam_p_${a.ip}").apply(); rafraichir() }
+                bouton(c, "Réessayer") { rafraichir() }
+            }
+        }
+    }
+
+    // ---- partager ce téléphone ----
+
+    private fun demarrerPartage() {
+        val i = Intent(this, PartageService::class.java)
+        try { if (Build.VERSION.SDK_INT >= 26) startForegroundService(i) else startService(i) } catch (e: Exception) { }
+    }
+
+    private fun permissionsMedias(): Array<String> = if (Build.VERSION.SDK_INT >= 33)
+        arrayOf("android.permission.READ_MEDIA_IMAGES", "android.permission.READ_MEDIA_VIDEO", "android.permission.READ_MEDIA_AUDIO", "android.permission.POST_NOTIFICATIONS")
+    else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+
+    private fun partagerCeTelephone() {
+        val c = page("Partager ce téléphone", "Ses photos, vidéos et musiques, visibles sur le Wi-Fi de la maison")
+        val actif = Relais.partageActif(this)
+        if (actif) {
+            texte(c, "Partage activé.", 17f, cVert)
+            texte(c, "Nom sur le réseau : " + Relais.nomTelephone(), 15f, cTexte)
+            texte(c, "Code à entrer sur les autres appareils :", 15f, cTexte)
+            texte(c, Relais.codePartage(this), 40f, cAccent)
+            texte(c, "Sans ce code, personne ne voit rien. Une notification « Partage actif » reste affichée tant que c'est activé.", 13f)
+            bouton(c, "Changer le nom") { saisir("Nom de ce téléphone sur le réseau", Relais.nomTelephone()) { prefs.edit().putString("partage_nom", it.trim()).apply(); rafraichir() } }
+            bouton(c, "Arrêter le partage") {
+                prefs.edit().putBoolean("partage_actif", false).apply()
+                stopService(Intent(this, PartageService::class.java))
+                rafraichir()
+            }
+        } else {
+            texte(c, "Partage arrêté.", 17f, cTexte)
+            texte(c, "En l'activant, Android te demande une fois l'autorisation de lire les photos, vidéos et musiques de ce téléphone. Les autres appareils de la maison les voient ensuite dans Réseau, avec un code.", 14f)
+            bouton(c, "Activer le partage") {
+                val manquantes = permissionsMedias().filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+                if (Build.VERSION.SDK_INT >= 23 && manquantes.isNotEmpty()) requestPermissions(manquantes.toTypedArray(), 77)
+                prefs.edit().putBoolean("partage_actif", true).apply()
+                Relais.codePartage(this)
+                demarrerPartage()
+                rafraichir()
+            }
+        }
+    }
+
     private fun pcIntrouvable(c: LinearLayout) {
         texte(c, "Le PC de la maison ne répond pas.", 17f, cTexte)
         texte(c, "Vérifie que le PC est allumé et que ce téléphone est sur le Wi-Fi de la maison. L'appli cherche toute seule sur tout le réseau.")
@@ -736,7 +1081,7 @@ class MainActivity : Activity() {
         fun montrer(k: Connu) {
             affiche = k
             c.removeAllViews()
-            remplirDossier(c, type, cle, k.base, k.texte)
+            remplirDossier(c, type, cle, k.texte, { ch -> passerelle.lienFichier(k.base, ch) }) { n, ch -> dossier(type, n, ch) }
         }
         // Dossier déjà ouvert : affiché tout de suite, puis revérifié en fond
         if (connu != null) montrer(connu) else attente(c, "Lecture du dossier…")
@@ -756,7 +1101,7 @@ class MainActivity : Activity() {
     }
 
     /** Contenu d'un dossier : deux boutons fixes en haut, puis une liste qui ne fabrique que les lignes visibles. */
-    private fun remplirDossier(c: LinearLayout, type: String, cle: String, p: String, t: String) {
+    private fun remplirDossier(c: LinearLayout, type: String, cle: String, t: String, fabriqueLien: (String) -> String, sous: (String, String) -> Unit) {
         val o = try { JSONObject(t) } catch (e: Exception) { JSONObject() }
         val dossiers = o.optJSONArray("dossiers") ?: JSONArray()
         val fichiers = o.optJSONArray("fichiers") ?: JSONArray()
@@ -764,7 +1109,7 @@ class MainActivity : Activity() {
         val nf = fichiers.length()
         if (nd == 0 && nf == 0) { texte(c, "Ce dossier est vide."); return }
         val noms = Array(nf) { fichiers.getJSONObject(it).optString("nom") }
-        val liens = Array(nf) { passerelle.lienFichier(p, fichiers.getJSONObject(it).optString("chemin")) }
+        val liens = Array(nf) { fabriqueLien(fichiers.getJSONObject(it).optString("chemin")) }
         val poids = LongArray(nf) { fichiers.getJSONObject(it).optLong("taille") / (1024 * 1024) }
         val nomsDossiers = Array(nd) { dossiers.getJSONObject(it).optString("nom") }
         val cheminsDossiers = Array(nd) { dossiers.getJSONObject(it).optString("chemin") }
@@ -842,7 +1187,7 @@ class MainActivity : Activity() {
             }
         }
         liste.setOnItemClickListener { _, _, i, _ ->
-            if (i < nd) ouvrir(ecranActuel + "/" + nomsDossiers[i], { dossier(type, nomsDossiers[i], cheminsDossiers[i]) })
+            if (i < nd) ouvrir(ecranActuel + "/" + nomsDossiers[i], { sous(nomsDossiers[i], cheminsDossiers[i]) })
             else {
                 val f = i - nd
                 if (type == "photos") ouvrir("Photo", { photo(liens, noms, f) }) else lire(liens, noms, f, type == "musique")
@@ -1710,6 +2055,9 @@ class MainActivity : Activity() {
                 reglages()
             }
         }
+        texte(c, "Partager ce téléphone", 18f, cAccent)
+        texte(c, if (Relais.partageActif(this)) "Activé : code " + Relais.codePartage(this) else "Arrêté.", 15f, cTexte)
+        bouton(c, "Partager les photos et vidéos de ce téléphone") { ouvrir("Partager", { partagerCeTelephone() }) }
         texte(c, "Smart Life", 18f, cAccent)
         texte(c, if (smartLife.pret) "Relié." else "Pas encore relié.", 15f, cTexte)
         bouton(c, if (smartLife.pret) "Revoir la liaison Smart Life" else "Relier Smart Life") { ouvrir("Relier Smart Life", { relierSmartLife() }) }
