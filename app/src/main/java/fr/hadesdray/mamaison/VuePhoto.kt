@@ -74,7 +74,9 @@ class VuePhoto(c: Context) : ImageView(c) {
 
     init {
         scaleType = ScaleType.MATRIX
-        isClickable = true
+        // Pas « cliquable » : à la télécommande, le choix passe directement aux boutons (la photo ne garde pas le cadre)
+        isClickable = false
+        isFocusable = false
     }
 
     fun montrer(b: Bitmap?, quartsDeTour: Int) {
