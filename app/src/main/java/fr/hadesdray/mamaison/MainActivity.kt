@@ -712,6 +712,11 @@ class MainActivity : Activity() {
         choisi.setColor(Color.argb(40, 255, 255, 255))
         if (Tv.isTv(this)) choisi.setStroke(dp(3), Color.WHITE)
         liste.selector = choisi
+        // Télé : le cadre de la liste n'apparaît que quand la télécommande est dans la liste (jamais deux cadres à la fois)
+        if (Tv.isTv(this)) {
+            choisi.alpha = 0
+            liste.setOnFocusChangeListener { _, dedans -> choisi.alpha = if (dedans) 255 else 0; liste.invalidate() }
+        }
         liste.setDrawSelectorOnTop(true)
         liste.adapter = object : BaseAdapter() {
             override fun getCount() = nd + nf
