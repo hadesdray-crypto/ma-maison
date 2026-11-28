@@ -1,0 +1,6 @@
+code=320693
+{"nom":"Téléphone sdk_gphone64_x86_64","partage":true}
+{"fichiers":[{"id":47,"nom":"c.png","taille":123015,"dossier":"Autres"},{"id":17,"nom":"photo-essai.png","taille":665,"dossier":"Camera"}]}
+photo id=47 code http 200 taille 123015
+morceau http 206 taille 10
+{"erreur":"code refusé"}

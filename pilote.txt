@@ -1,0 +1,24 @@
+toucher exact Réseau True
+capture 01-reseau ['‹ Retour', 'Réseau', '?', 'Tout ce qui est branché sur le Wi-Fi de la maison', 'Ordinateurs', '2 / 2 connecté(s)', 'PC-ESSAI', 'Connecté · 10.0.2.2 · Essai Faux DLNA&#10;Ses vidéos, photos et musiques', 'PC-ESSAI', 'Connecté · 10.0.2.3 · Essai Faux DLNA&#10;Ses vidéos, photos et musiques', 'Rechercher de nouveau', "Un téléphone ou une tablette n'apparaît ici que si Ma Maison y est installée et que « Partager ce téléphone » y est activé (dans Réglages). Sans ça, Android ne laisse rien voir.", "Les appareils qui ne partagent rien (prises, ampoules, la plupart des télés) apparaissent avec leur voyant, mais il n'y a rien à ouvrir dedans."]
+toucher PC-ESSAI True
+capture 02-choix ['PC-ESSAI', 'Serveur de vidéos et musique', 'Dossiers partagés', 'Disques du PC (Ma Maison)', 'ANNULER']
+toucher Dossiers partagés True
+capture 03-partages ['‹ Retour', 'PC-ESSAI', '?', 'Dossiers partagés de ce PC', 'Films', 'Dossier partagé', "Changer d'identifiant Windows"]
+toucher Films True
+capture 04-smb-liste ['‹ Retour', 'Films', '?', 'Tout lire ici à la suite', 'Envoyer sur la télé', '▸  Dessins animés', 'Dossier', '▸  Saison 1', 'Dossier', 'Film 001.mp4', '700 Mo', 'Film 002.mp4', '1400 Mo', 'Film 003.mp4', 'Film 004.mp4', 'Film 005.mp4', 'Film 006.mp4', 'Film 007.mp4', 'Film 008.mp4', 'Film 009.mp4', 'Film 010.mp4', 'Film 011.mp4']
+toucher Film 001 True
+capture 05-smb-lecteur ['Film 001.mp4']
+toucher exact Réseau True
+toucher PC-ESSAI True
+toucher Serveur de vidéos True
+capture 06-dlna ['‹ Retour', 'PC-ESSAI', '?', '▸  Films du serveur', 'Dossier']
+toucher ▸  Films du serveur True
+capture 07-dlna-liste ['‹ Retour', 'Films du serveur', '?', 'Tout lire ici à la suite', 'Envoyer sur la télé', 'Essai serveur.mp4']
+toucher Essai serveur True
+capture 08-dlna-lecteur ['Connexion coupée : reprise… (3/6)']
+toucher exact Vidéos True
+capture 09-videos-reseau ['‹ Retour', 'Vidéos', '?', 'Sur le PC de la maison, disque par disque', 'Ce PC', 'connecté', 'Films essai', 'Dossier', 'Vidéos', 'Dossier', 'Disque Z: — EMTEC · 1 To', 'non connecté', 'Films du disque externe', 'Non connecté — Introuvable : disque débranché, ou dossier déplacé', 'Tout le disque Z:', 'Non connecté — Disque Z: débranché ou éteint', 'Sur le réseau', 'PC-ESSAI', 'Ses vidéos, photos et musiques', 'PC-ESSAI', 'Ses vidéos, photos et musiques', 'Vérifier de nouveau']
+toucher exact Réglages True
+toucher Partager les photos True
+toucher Activer le partage True
+capture 10-partage ['‹ Retour', 'Partager ce téléphone', '?', 'Ses photos, vidéos et musiques, visibles sur le Wi-Fi de la maison', 'Partage activé.', 'Nom sur le réseau : Téléphone sdk_gphone64_x86_64', 'Code à entrer sur les autres appareils :', '320693', "Sans ce code, personne ne voit rien. Une notification « Partage actif » reste affichée tant que c'est activé.", 'Changer le nom', 'Arrêter le partage']

@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <string name="relais_cle">5c4130350f1b1125a482aab72a33d49e</string>
+    <boolean name="acces_demandes" value="true" />
+    <boolean name="partage_actif" value="true" />
+    <string name="passerelle">http://10.0.2.2:8790</string>
+    <string name="reseau_connus">[{&quot;cle&quot;:&quot;pc-essai&quot;,&quot;ip&quot;:&quot;10.0.2.2&quot;,&quot;nom&quot;:&quot;PC-ESSAI&quot;,&quot;genre&quot;:&quot;pc&quot;,&quot;ports&quot;:[8790,8200,139,445],&quot;dlna&quot;:&quot;http:\/\/10.0.2.2:8200\/ctl\/ContentDir&quot;,&quot;marque&quot;:&quot;Essai Faux DLNA&quot;,&quot;vu&quot;:1795858654399},{&quot;cle&quot;:&quot;pc-essai&quot;,&quot;ip&quot;:&quot;10.0.2.3&quot;,&quot;nom&quot;:&quot;PC-ESSAI&quot;,&quot;genre&quot;:&quot;pc&quot;,&quot;ports&quot;:[8790,8200,139,445],&quot;dlna&quot;:&quot;http:\/\/10.0.2.3:8200\/ctl\/ContentDir&quot;,&quot;marque&quot;:&quot;Essai Faux DLNA&quot;,&quot;vu&quot;:1795858654399}]</string>
+    <string name="partage_code">320693</string>
+</map>
