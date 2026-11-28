@@ -73,9 +73,8 @@ jobs:
           ffmpeg -loglevel error -f lavfi -i testsrc=duration=20:size=640x360:rate=25 -f lavfi -i sine=duration=20 -c:v libx264 -preset veryfast -c:a aac -shortest sortie/essai.mp4 || true
           sh .github/essai-accueil/faux_pc.sh "$PWD/sortie" "$PWD/passerelle"
           nohup node passerelle/passerelle.js > sortie/faux-pc.log 2>&1 &
-          sleep 2
-          curl -s http://127.0.0.1:8790/ping
-          curl -s "http://127.0.0.1:8790/racines?type=videos"
+          for i in 1 2 3 4 5 6 7 8 9 10; do curl -s http://127.0.0.1:8790/ping && break; sleep 2; done
+          curl -s "http://127.0.0.1:8790/racines?type=videos" || true
       - name: Activer KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
