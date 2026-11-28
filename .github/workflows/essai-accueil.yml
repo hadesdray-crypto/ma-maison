@@ -80,6 +80,7 @@ jobs:
           path: sortie
       - name: Faux PC de la maison
         run: |
+          sudo apt-get -qq update >/dev/null && sudo DEBIAN_FRONTEND=noninteractive apt-get -qq install -y ffmpeg >/dev/null
           ffmpeg -loglevel error -f lavfi -i testsrc=duration=20:size=640x360:rate=25 -f lavfi -i sine=duration=20 -c:v libx264 -preset veryfast -c:a aac -shortest sortie/essai.mp4 || true
           sh .github/essai-accueil/fabriquer_videos.sh "$PWD/sortie"
           sh .github/essai-accueil/faux_pc.sh "$PWD/sortie" "$PWD/passerelle"
