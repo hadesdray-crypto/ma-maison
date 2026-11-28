@@ -68,7 +68,7 @@ jobs:
           chmod -R o+rx /tmp/pc
           printf '[global]\n netbios name = PC-ESSAI\n map to guest = Bad User\n server min protocol = SMB2\n[Films]\n path = /tmp/pc/films\n guest ok = yes\n read only = yes\n' | sudo tee /etc/samba/smb.conf >/dev/null
           sudo systemctl restart smbd nmbd || (sudo smbd -D; sudo nmbd -D)
-          sleep 2; nmblookup -A 127.0.0.1 || true; smbclient -N -L 127.0.0.1 || true
+          sleep 2; nmblookup -A 127.0.0.1 || true; ss -ltnu | grep -E ':(445|137|8200|8790) ' || true
           nohup node passerelle/passerelle.js > sortie/faux-pc.log 2>&1 &
           for i in 1 2 3 4 5 6 7 8 9 10; do curl -s http://127.0.0.1:8790/ping && break; sleep 2; done
           curl -s "http://127.0.0.1:8790/racines?type=videos" || true
@@ -92,8 +92,9 @@ jobs:
             adb shell pm grant fr.hadesdray.mamaison android.permission.READ_EXTERNAL_STORAGE || true
             adb shell pm grant fr.hadesdray.mamaison android.permission.READ_MEDIA_IMAGES || true
             adb shell pm grant fr.hadesdray.mamaison android.permission.POST_NOTIFICATIONS || true
-            adb shell mkdir -p /sdcard/DCIM/Camera; ffmpeg -loglevel error -f lavfi -i color=c=red:s=320x200 -frames:v 1 photo.jpg && adb push photo.jpg /sdcard/DCIM/Camera/photo-essai.jpg
-            adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/DCIM/Camera/photo-essai.jpg || true
+            adb shell mkdir -p /sdcard/DCIM/Camera || true
+            adb push "/tmp/pc/photos/Photo rouge.png" /sdcard/DCIM/Camera/photo-essai.png || true
+            adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/DCIM/Camera/photo-essai.png || true
             adb shell content call --method scan_volume --uri content://media --arg external_primary || true
             adb shell pm grant fr.hadesdray.mamaison android.permission.RECORD_AUDIO || true
             adb shell am start -n fr.hadesdray.mamaison/.MainActivity
