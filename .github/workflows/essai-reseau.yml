@@ -102,12 +102,10 @@ jobs:
             sh ../.github/essai-reseau/scenario.sh > pilote.txt 2>&1 || true
             adb forward tcp:8791 tcp:8791 || true
             adb shell run-as fr.hadesdray.mamaison cat shared_prefs/maison.xml > prefs.txt 2>&1 || true
-            CODE=$(grep -o 'partage_code">[0-9]*' prefs.txt | grep -o '[0-9]*$'); echo "code=$CODE" > relais.txt
-            curl -s -m 5 http://127.0.0.1:8791/partage/ping >> relais.txt 2>&1; echo >> relais.txt
-            curl -s -m 5 "http://127.0.0.1:8791/partage/liste?type=photos&code=$CODE" >> relais.txt 2>&1; echo >> relais.txt
-            curl -s -m 5 "http://127.0.0.1:8791/partage/liste?type=photos&code=000000" >> relais.txt 2>&1; echo >> relais.txt
+            sh ../.github/essai-reseau/relais.sh > relais.txt 2>&1 || true
             adb logcat -d -s AndroidRuntime:E > plantages.txt || true
             adb shell dumpsys gfxinfo fr.hadesdray.mamaison | head -40 > fluidite.txt || true
+
       - name: Ranger les résultats
         if: always()
         run: |

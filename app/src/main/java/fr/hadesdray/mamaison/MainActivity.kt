@@ -794,11 +794,16 @@ class MainActivity : Activity() {
                 val groupe = l.filter { it.genre == g }
                 if (groupe.isEmpty()) continue
                 val n = groupe.count { it.present }
-                entete(c, titre, if (n > 0) 1 else 0, "$n / ${groupe.size} connecté(s)")
+                if (enCours) entete(c, titre, -1, "vérification…") else entete(c, titre, if (n > 0) 1 else 0, "$n / ${groupe.size} connecté(s)")
                 grille(c, groupe.map { a ->
-                    val info = (if (a.present) "Connecté" else "Non connecté") + " · " + a.ip + (if (a.marque.isNotEmpty()) " · " + a.marque else "") + "\n" + capacite(a)
-                    val t = tuile(a.nom, info, voyant = if (a.present) 1 else 0) { ouvrirAppareil(a) }
-                    if (!a.present) t.alpha = 0.55f
+                    // Pendant la recherche, les appareils déjà connus restent ouvrables (vérification en cours)
+                    val etat = if (enCours) "Vérification…" else if (a.present) "Connecté" else "Non connecté"
+                    val info = etat + " · " + a.ip + (if (a.marque.isNotEmpty()) " · " + a.marque else "") + "\n" + capacite(a)
+                    val t = tuile(a.nom, info, voyant = if (enCours) -1 else if (a.present) 1 else 0) {
+                        if (enCours) a.present = true
+                        ouvrirAppareil(a)
+                    }
+                    if (!enCours && !a.present) t.alpha = 0.55f
                     t
                 })
             }
