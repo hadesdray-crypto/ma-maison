@@ -78,14 +78,31 @@ class ReseauMaison(private val ctx: Context) {
         prefs.edit().putString("reseau_connus", a.toString()).apply()
     }
 
+    /** Adresse de ce téléphone sur le Wi-Fi (jamais celle des données mobiles). */
     fun monIp(): String? {
+        try {
+            val wm = ctx.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            @Suppress("DEPRECATION") val ip = wm.connectionInfo?.ipAddress ?: 0
+            if (ip != 0) return "${ip and 0xff}.${ip shr 8 and 0xff}.${ip shr 16 and 0xff}.${ip shr 24 and 0xff}"
+        } catch (e: Exception) { }
+        var autre: String? = null
         try {
             for (ni in NetworkInterface.getNetworkInterfaces()) {
                 if (!ni.isUp || ni.isLoopback) continue
-                for (a in ni.inetAddresses) if (a is Inet4Address && a.isSiteLocalAddress) return a.hostAddress
+                for (a in ni.inetAddresses) if (a is Inet4Address && a.isSiteLocalAddress) {
+                    if (ni.name.startsWith("wlan") || ni.name.startsWith("eth")) return a.hostAddress
+                    if (autre == null && !ni.name.startsWith("rmnet") && !ni.name.startsWith("ccmni")) autre = a.hostAddress
+                }
             }
         } catch (e: Exception) { }
-        return null
+        return autre
+    }
+
+    /** Toutes les adresses de ce téléphone (pour ne pas se trouver soi-même). */
+    private fun mesIps(): Set<String> {
+        val l = HashSet<String>()
+        try { for (ni in NetworkInterface.getNetworkInterfaces()) for (a in ni.inetAddresses) a.hostAddress?.let { l.add(it) } } catch (e: Exception) { }
+        return l
     }
 
     private fun ouvert(ip: String, port: Int, delai: Int): Boolean = try {
@@ -111,9 +128,10 @@ class ReseauMaison(private val ctx: Context) {
         // 2) annonces Bonjour
         val nsd = try { bonjour(::pour) } catch (e: Throwable) { null }
         // 3) balayage
+        val miennes = mesIps() + moi
         for (i in 1..254) {
             val ip = "$prefixe.$i"
-            if (ip == moi) continue
+            if (ip in miennes) continue
             pool.execute {
                 for (p in PORTS) if (ouvert(ip, p, 350)) pour(ip).ports.add(p)
             }
@@ -133,6 +151,7 @@ class ReseauMaison(private val ctx: Context) {
         val anciens = connus().associateBy { it.cle }.toMutableMap()
         val resultat = ArrayList<AppareilReseau>()
         for (a in trouves.values) {
+            if (a.ip in miennes) continue
             if (a.nom.isEmpty()) a.nom = when (a.genre) { "pc" -> "PC"; else -> "Appareil" } + " (" + a.ip + ")"
             a.cle = if (a.nom.contains(a.ip)) a.ip else a.nom.lowercase()
             val ancien = anciens.remove(a.cle) ?: anciens.values.firstOrNull { it.ip == a.ip && it.nom.contains(it.ip) }?.also { anciens.remove(it.cle) }

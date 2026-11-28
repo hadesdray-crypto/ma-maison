@@ -25,6 +25,8 @@ class Partages(ctx: Context) {
         p["jcifs.smb.client.soTimeout"] = "20000"
         p["jcifs.smb.client.connTimeout"] = "6000"
         p["jcifs.resolveOrder"] = "DNS"
+        // Accès invité (sans mot de passe) : pas de signature possible, Windows et Samba l'acceptent quand même
+        p["jcifs.smb.client.ipcSigningEnforced"] = "false"
         BaseContext(PropertyConfiguration(p))
     }
 
