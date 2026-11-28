@@ -1,0 +1,18 @@
+télécommande vers Vidéos True
+capture 01-videos ['‹ Retour', 'Vidéos', '?', 'Sur le PC de la maison, disque par disque', 'Ce PC', 'connecté', 'Films essai', 'Dossier', 'Vidéos essai', 'Dossier', 'Disque Z: — EMTEC · 1 To', 'non connecté', 'Films du disque externe', 'Non connecté — Introuvable : disque débranché, ou dossier déplacé', 'Tout le disque Z:', 'Non connecté — Disque Z: débranché ou éteint', 'Sur le réseau', "Rien d'autre pour l'instant. Ouvre la tuile Réseau pour chercher les autres PC, la Freebox, les serveurs et les téléphones.", 'Vérifier de nouveau']
+télécommande vers Vidéos essai True
+capture 02-liste ['‹ Retour', 'Vidéos essai', '?', 'Tout lire ici à la suite', 'Envoyer sur la télé', "Appui long sur un film ou un dossier : indiquer l'âge conseillé (pastille de couleur).", 'Essai externe.mp4', 'Essai japonais.mkv', '1 Mo', 'Essai langues.mkv', '1 Mo', 'Essai vlc.avi', '2 Mo', 'Essai.mp4']
+INATTEIGNABLE à la télécommande : Essai langues
+télécommande vers Essai langues False
+capture 03-lecture ['Signaler un problème (page : Vidéos/Vidéos essai)', "Qu'est-ce qui ne va pas ?", 'ANNULER', 'ENVOYER']
+capture 04-menu ['Signaler un problème (page : Vidéos/Vidéos essai)', "Qu'est-ce qui ne va pas ?", 'ANNULER', 'ENVOYER']
+élément choisi : Qu'est-ce qui ne va pas ?
+capture 05-bas ['Signaler un problème (page : Vidéos/Vidéos essai)', "Qu'est-ce qui ne va pas ?", 'ANNULER', 'ENVOYER']
+élément choisi : Qu'est-ce qui ne va pas ?
+capture 06-langues ['Signaler un problème (page : Vidéos/Vidéos essai)', 'a', 'ANNULER', 'ENVOYER']
+élément choisi : a
+capture 07-choix ['Signaler un problème (page : Vidéos/Vidéos essai)', 'a', 'ANNULER', 'ENVOYER']
+élément choisi : a
+capture 08-retour ['Signaler un problème (page : Vidéos/Vidéos essai)', 'a', 'ANNULER', 'ENVOYER']
+élément choisi : a
+capture 09-menu-ferme ['‹ Retour', 'Vidéos essai', '?', 'Tout lire ici à la suite', 'Envoyer sur la télé', "Appui long sur un film ou un dossier : indiquer l'âge conseillé (pastille de couleur).", 'Essai externe.mp4', 'Essai japonais.mkv', '1 Mo', 'Essai langues.mkv', '1 Mo', 'Essai vlc.avi', '2 Mo', 'Essai.mp4']
