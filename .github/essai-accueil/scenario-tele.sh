@@ -1,13 +1,15 @@
 py() { python3 ../.github/essai-accueil/pilote.py "$@"; }
+k() { for c in "$@"; do adb shell input keyevent $c; sleep 0.8; done; sleep 1; }
 py retour dormir:2
 adb shell am start -n fr.hadesdray.mamaison/.MainActivity; sleep 10
 py cap:01-accueil focus
-py aller:Vidéos cap:02-videos-choisie touche:23 dormir:4 cap:03-videos focus
-py "aller:Films essai" touche:23 dormir:4 cap:04-liste focus
-py touche:20x5 cap:05-liste-ligne-choisie focus touche:20x30 cap:06-liste-plus-bas focus
-py touche:19x40 touche:20 focus touche:23 dormir:3 cap:07-sous-dossier focus retour dormir:1 cap:08-retour-liste retour retour dormir:1 cap:09-accueil focus
-py aller:Photos appuilong cap:10-menu-appui-long touche:20x2 touche:23 dormir:1 cap:11-photos-petite
-py aller:Maison touche:23 dormir:2 cap:12-maison focus aller:Capteurs cap:13-capteurs-choisi retour
-py aller:Réglages cap:14-reglages-choisi touche:23 dormir:2 cap:15-reglages retour
-py aller:Jeux touche:23 dormir:2 cap:16-jeux retour
-py aller:YouPub cap:17-youpub-choisie
+k 20 20; py focus cap:02-bas2
+k 22; py focus; k 20; py focus cap:03-rangee-moyenne; k 20; py focus; k 20; py focus cap:04-rangee-petite
+k 19 19 19 19 19 19 19 19 20 20; py focus; k 23; sleep 4; py cap:05-videos focus
+k 20; py focus; k 23; sleep 4; py cap:06-liste focus
+k 20 20 20; py focus cap:07-ligne-choisie
+k 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20; py focus cap:08-plus-bas
+k 4; sleep 2; k 4; sleep 2; py cap:09-accueil focus
+k 19 19 19 19 19 19 19 19 20 20 22 22 22; py focus cap:10-photos-choisie
+py appuilong cap:11-menu focus
+k 20 20; py focus; k 23; sleep 2; py cap:12-photos-petite focus
